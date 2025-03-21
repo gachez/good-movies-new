@@ -1,11 +1,17 @@
+"use client";
 import { SearchBar } from '@/components/MovieSearch/SearchBar';
 import { MoodChipsSection } from '@/components/MovieSearch/MoodChipsSection';
 import MovieGrid from '@/components/MovieSearch/MovieGrid';
 import { Navbar } from '@/components/MovieSearch/Navbar';
+import { toast, Toaster} from 'react-hot-toast'
+import { useState } from 'react';
 
 export default function Home() {
+  const [searchValue, setSearchValue] = useState("");
+  const [filters, selectedFilters] = useState([]);
   return (
     <main className="min-h-screen bg-gradient-to-br from-violet-50 to-indigo-50 relative">
+      <Toaster />
       <Navbar />
       <MovieGrid />
       
@@ -14,7 +20,7 @@ export default function Home() {
           What kind of movie are you looking for?
         </h1>
         
-        <SearchBar />
+        <SearchBar searchValue={searchValue} toast={toast} />
         <MoodChipsSection />
       </div>
     </main>

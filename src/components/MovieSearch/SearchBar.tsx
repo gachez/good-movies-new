@@ -3,6 +3,9 @@
 import { Search, Rabbit } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+
 
 const searchExamples = [
   "A mind-bending sci-fi like Inception but with more emotional depth",
@@ -12,14 +15,21 @@ const searchExamples = [
   "A thriller that keeps you guessing until the very end like Memento",
 ];
 
-export const SearchBar = () => {
+export const SearchBar = (props:any) => {
+  const router = useRouter();
   const [isRabbitHole, setIsRabbitHole] = useState(false);
   const [currentExample, setCurrentExample] = useState(0);
   const [inputValue, setInputValue] = useState("");
 
   const handleSubmit = () => {
-    // Replace this with your search submission logic.
+    if(!inputValue || inputValue.trim() === "") {
+      props.toast.error("Please enter a search query");
+      return;
+    }
+    // Replace this with your search submission 
+    // logic.
     console.log("Submitted search:", inputValue);
+    router.push(`/results`);
   };
 
   return (
@@ -31,7 +41,7 @@ export const SearchBar = () => {
       <div className="relative">
         <Search className="absolute left-4 top-6 text-violet-600 h-5 w-5" />
         <textarea
-          rows={5}
+          rows={3}
           placeholder={searchExamples[currentExample]}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
@@ -39,15 +49,15 @@ export const SearchBar = () => {
             const nextExample = (currentExample + 1) % searchExamples.length;
             setCurrentExample(nextExample);
           }}
-          className="w-full pl-12 pr-48 py-4 rounded-2xl bg-white shadow-lg 
+          className="w-full pl-12 pr-6 py-4 pb-6 rounded-2xl bg-white shadow-lg 
                      text-violet-900 placeholder-violet-400 resize-none
                      focus:outline-none focus:ring-2 focus:ring-violet-500"
         />
         {/* Submit Button */}
         <button
           onClick={handleSubmit}
-          className="absolute right-40 bottom-2 px-4 py-1.5 rounded-full transition-all
-                     bg-violet-500 text-white text-sm hover:bg-violet-600 shadow-lg"
+          className="absolute right-40 bottom-4 px-4 py-1.5 rounded-full transition-all
+                     bg-violet-500 text-white text-sm hover:bg-violet-600 shadow-lg cursor-pointer"
           title="Submit search input"
         >
           Submit
@@ -55,7 +65,8 @@ export const SearchBar = () => {
         {/* Rabbit Hole Button */}
         <button
           onClick={() => setIsRabbitHole(!isRabbitHole)}
-          className={`absolute right-4 bottom-2 px-4 py-1.5 rounded-full transition-all
+          style={{cursor:'pointer'}}
+          className={`absolute right-4 bottom-4 px-4 py-1.5 rounded-full transition-all
                     flex items-center space-x-2
                     ${isRabbitHole 
                       ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg scale-105' 

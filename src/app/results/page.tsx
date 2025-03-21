@@ -172,7 +172,7 @@ export default function SearchResults() {
                   alt={showDetails.title}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-white/90 to-transparent flex items-end p-4">
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent flex items-end p-4">
                   <div className="flex flex-wrap gap-1">
                     {showDetails.genres.map((genre:any, idx:any) => (
                       <span key={idx} className="text-xs bg-purple-200 text-gray-800 px-2 py-1 rounded-full">
@@ -287,7 +287,7 @@ function MovieCard({ movie, onInfoClick }:any) {
             alt={movie.title}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-transparent to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-200 via-transparent to-transparent"></div>
           
           {/* Movie info overlay at bottom */}
           <div className="absolute bottom-0 left-0 right-0 p-4">
