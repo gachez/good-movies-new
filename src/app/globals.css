@@ -17,6 +17,12 @@
   }
 }
 
+@layer utilities {
+  .sidebar-open {
+    overflow: hidden;
+  }
+}
+
 .animate-like-popup {
   animation: likePopup 0.5s ease-in-out forwards;
 }
