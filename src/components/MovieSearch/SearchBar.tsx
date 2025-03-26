@@ -19,18 +19,8 @@ export const SearchBar = (props:any) => {
   const router = useRouter();
   const [isRabbitHole, setIsRabbitHole] = useState(false);
   const [currentExample, setCurrentExample] = useState(0);
-  const [inputValue, setInputValue] = useState("");
 
-  const handleSubmit = () => {
-    if(!inputValue || inputValue.trim() === "") {
-      props.toast.error("Please enter a search query");
-      return;
-    }
-    // Replace this with your search submission 
-    // logic.
-    console.log("Submitted search:", inputValue);
-    router.push(`/results`);
-  };
+
 
   return (
     <motion.div
@@ -43,8 +33,8 @@ export const SearchBar = (props:any) => {
         <textarea
           rows={3}
           placeholder={searchExamples[currentExample]}
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          value={props.searchValue}
+          onChange={(e) => props.setSearchValue(e.target.value)}
           onFocus={() => {
             const nextExample = (currentExample + 1) % searchExamples.length;
             setCurrentExample(nextExample);
@@ -55,7 +45,7 @@ export const SearchBar = (props:any) => {
         />
         {/* Submit Button */}
         <button
-          onClick={handleSubmit}
+          onClick={props.handleSubmit}
           className="absolute right-40 bottom-4 px-4 py-1.5 rounded-full transition-all
                      bg-violet-500 text-white text-sm hover:bg-violet-600 shadow-lg cursor-pointer"
           title="Submit search input"

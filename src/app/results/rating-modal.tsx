@@ -32,7 +32,7 @@ export default function RatingModal({ movie, open, onOpenChange }: RatingModalPr
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={true} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center text-xl">Rate "{movie.title}"</DialogTitle>
