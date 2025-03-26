@@ -7,14 +7,6 @@ import { MoodChip } from './MoodChip';
 
 const categories = [
   {
-    title: 'Genres',
-    items: [
-      'Action', 'Adventure', 'Animation', 'Comedy', 'Crime', 'Documentary',
-      'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi',
-      'Thriller', 'Western', 'Musical', 'Biography', 'War', 'Sport'
-    ]
-  },
-  {
     title: 'Moods',
     items: [
       'Feel-good', 'Dark', 'Intense', 'Thought-provoking', 'Emotional',

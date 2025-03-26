@@ -37,8 +37,13 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import RatingModal from "./rating-modal";
+import axios from "axios";
+import Config from "@/config";
+import { useRouter } from "next/navigation";
+import { LoadingState } from "@/components/LoadingState";
 
 export default function SearchResults() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(
     "I want a movie about software development not necessarily a documentary but a movie with themes of coding and startups"
   );
@@ -48,6 +53,7 @@ export default function SearchResults() {
   const [showDetails, setShowDetails] = useState<any>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState<number>(0);
   const [moviesFound, setMoviesFound] = useState<any>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const scrollContainerRef = useRef<any>(null);
   const messageInputRef = useRef<any>(null);
 
@@ -75,34 +81,37 @@ export default function SearchResults() {
     setShowDetails(movie);
   };
 
-  const scrollToNextCard = () => {
-    if (
-      scrollContainerRef.current &&
-      currentCardIndex < moviesFound.length - 1
-    ) {
-      const newIndex = currentCardIndex + 1;
-      scrollContainerRef.current.scrollTo({
-        top: newIndex * scrollContainerRef.current.clientHeight,
-        behavior: "smooth",
-      });
-    }
-  };
+  async function handleSubmit(e:any) {
+    e.preventDefault();
 
-  const scrollToPrevCard = () => {
-    if (scrollContainerRef.current && currentCardIndex > 0) {
-      const newIndex = currentCardIndex - 1;
-      scrollContainerRef.current.scrollTo({
-        top: newIndex * scrollContainerRef.current.clientHeight,
-        behavior: "smooth",
-      });
-    }
-  };
+    if (!newMessage.trim()) return;
 
-  const focusMessageInput = () => {
-    if (messageInputRef.current) {
-      messageInputRef.current.focus();
+    setSearchQuery(newMessage);
+    setNewMessage("");
+    setIsTyping(false);
+    try {
+      setIsLoading(true);
+
+      const response = await axios.get(`${Config.API_URL}/api/recommendations`, {
+        params: {
+          query: newMessage,
+        },
+      })
+  
+      console.log("Found results ==> ", response);
+      //set found movies to localStorage
+      localStorage.setItem('recommededMovies', JSON.stringify(response.data.results));
+      localStorage.setItem('searchValue', newMessage);
+      setIsLoading(false);
+
+      setMoviesFound(response.data.results);
+    } catch (error) {
+      alert("Something went wrong. Please try again.");
+      console.log(error);
+      setIsLoading(false);
     }
-  };
+
+  }
 
   const handleMessageSubmit = (e: any) => {
     e.preventDefault();
@@ -126,6 +135,9 @@ export default function SearchResults() {
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-purple-100 to-indigo-100 pb-20">
+      {
+        isLoading ? <LoadingState isLoading={isLoading} /> : null
+      }
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 sticky top-0 z-20 shadow-md">
         <div className="container mx-auto px-4 py-2">
@@ -330,7 +342,9 @@ export default function SearchResults() {
                 />
 
                 <Button
-                  type="submit"
+                  onClick={(e) => {
+                    handleSubmit(e)
+                  }}
                   className="absolute right-2 bottom-2 bg-purple-500 hover:bg-purple-400 text-white rounded-full p-2 h-auto"
                   disabled={!newMessage.trim()}
                 >

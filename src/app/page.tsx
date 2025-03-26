@@ -9,6 +9,8 @@ import axios from 'axios';
 import { LoadingState } from '@/components/LoadingState';
 import Config from '@/config';
 import { useRouter } from 'next/navigation';
+import { Search } from 'lucide-react';
+import { SearchHistory } from '@/components/SearchHistory';
 
 export default function Home() {
   const router = useRouter();
@@ -24,6 +26,7 @@ export default function Home() {
       const response = await axios.get(`${Config.API_URL}/api/recommendations`, {
         params: {
           query: searchValue,
+          resetContext: true
         },
       })
   
@@ -59,6 +62,8 @@ export default function Home() {
         <SearchBar handleSubmit={handleSubmit} searchValue={searchValue} setSearchValue={setSearchValue} toast={toast} />
         <MoodChipsSection />
       </div>
+
+      <SearchHistory />
     </main>
   );
 }

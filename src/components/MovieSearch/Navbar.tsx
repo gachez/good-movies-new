@@ -15,7 +15,7 @@ export const Navbar = () => {
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
             <Rabbit className="h-8 w-8 text-white" />
-            <span className="text-2xl font-bold text-white hidden lg:block">GoodMovies AI</span>
+            <span className="text-2xl font-bold text-white hidden lg:block">FilmRabbit AI</span>
           </Link>
           
           <div className="flex items-center space-x-6">
