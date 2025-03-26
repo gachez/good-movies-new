@@ -15,6 +15,7 @@ import {
   CheckCircle,
   ThumbsUp,
   StarIcon,
+  SparklesIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -109,12 +110,7 @@ export default function MovieLists() {
     }
   };
 
-  const handleClearList = () => {
-    if (selectedList) {
-      MovieStorage.clearList(selectedList.name);
-      setListMovies([]);
-    }
-  };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white">
@@ -233,10 +229,10 @@ export default function MovieLists() {
                   <Button className="gap-2 bg-purple-500 hover:bg-purple-400 text-white">
                     <Sparkles className="h-4 w-4" />
                     <span className="hidden md:inline">
-                      Get Recommendations Based on List
+                      More like this list
                     </span>
                     <span className="inline md:hidden">
-                      Get Recommendations
+                      More like this list
                     </span>
                   </Button>
                 </div>
@@ -298,6 +294,14 @@ export default function MovieLists() {
                       >
                         <Info className="h-4 w-4" />
                         View Details
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="w-full gap-2 mt-4 border-purple-500 text-purple-100 hover:bg-purple-500 bg-purple-500"
+                        onClick={() => setShowDetails(movie)}
+                      >
+                        <SparklesIcon className="h-4 w-4" />
+                        Recommend Similar
                       </Button>
                     </div>
                   </Card>

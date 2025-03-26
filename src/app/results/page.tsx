@@ -91,9 +91,12 @@ export default function SearchResults() {
     setIsTyping(false);
     try {
       setIsLoading(true);
-      const response = await axios.get(`${Config.API_URL}/api/recommendations`, {
-        params: { query: newMessage },
-      });
+      const response = await axios.get(
+        `${Config.API_URL}/api/recommendations`,
+        {
+          params: { query: newMessage },
+        }
+      );
       // Save results to localStorage
       localStorage.setItem(
         "recommededMovies",
@@ -337,9 +340,7 @@ export default function SearchResults() {
                   rows={2}
                   className="w-full px-4 py-2 bg-transparent text-gray-800 placeholder-gray-500 resize-none focus:outline-none"
                   placeholder={
-                    rabbitHoleMode
-                      ? "Go deeper..."
-                      : "Ask a question..."
+                    rabbitHoleMode ? "Go deeper..." : "Ask a question..."
                   }
                 />
                 <Button
@@ -362,7 +363,8 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
   const [showRatingModal, setShowRatingModal] = useState<boolean>(false);
   const [showListModal, setShowListModal] = useState<boolean>(false);
   const [showLikeAnimation, setShowLikeAnimation] = useState<boolean>(false);
-  const [showDislikeAnimation, setShowDislikeAnimation] = useState<boolean>(false);
+  const [showDislikeAnimation, setShowDislikeAnimation] =
+    useState<boolean>(false);
   const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Load persisted state for this movie
@@ -379,7 +381,11 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
       isDisliked: false,
     });
     MovieStorage.addToList(movie, "Liked 👍");
-    setMovieState((prev: any) => ({ ...prev, isLiked: true, isDisliked: false }));
+    setMovieState((prev: any) => ({
+      ...prev,
+      isLiked: true,
+      isDisliked: false,
+    }));
     toast.success("You like this! 🎉");
     setTimeout(() => setShowLikeAnimation(false), 2000);
   };
@@ -392,18 +398,17 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
       isDisliked: true,
     });
     MovieStorage.addToList(movie, "Not my taste 👎");
-    setMovieState((prev: any) => ({ ...prev, isLiked: false, isDisliked: true }));
+    setMovieState((prev: any) => ({
+      ...prev,
+      isLiked: false,
+      isDisliked: true,
+    }));
     toast.success("Cool, not for you! 😐");
     setTimeout(() => setShowDislikeAnimation(false), 2000);
   };
 
   const handleSeenClick = () => {
-    MovieStorage.saveMovieState(movie.id, { isSeen: true });
-    setMovieState((prev: any) => ({ ...prev, isSeen: true }));
     setShowRatingModal(true);
-    // Add to Watched list
-    MovieStorage.addToList(movie, "Watched ✓");
-    toast.success("Added to your Watched list!");
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -444,8 +449,12 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
           open={showRatingModal}
           onOpenChange={setShowRatingModal}
           onRate={(rating) => {
+            MovieStorage.saveMovieState(movie.id, { isSeen: true });
+            setMovieState((prev: any) => ({ ...prev, isSeen: true }));
             MovieStorage.saveMovieState(movie.id, { rating });
             setMovieState((prev: any) => ({ ...prev, rating }));
+
+            toast.success("Added to your Watched list!");
           }}
         />
       )}
@@ -532,7 +541,9 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
                 <p className="font-medium text-gray-800 mb-1">
                   Why we recommend:
                 </p>
-                <p className="text-gray-700 line-clamp-2">{movie.matchReason}</p>
+                <p className="text-gray-700 line-clamp-2">
+                  {movie.matchReason}
+                </p>
               </div>
             )}
             {movie.highlightedThemes && movie.highlightedThemes.length > 0 && (
@@ -541,14 +552,16 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
                   Key Themes:
                 </p>
                 <div className="flex flex-wrap gap-1">
-                  {movie.highlightedThemes.slice(0, 3).map((theme: any, idx: any) => (
-                    <span
-                      key={idx}
-                      className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full"
-                    >
-                      {theme}
-                    </span>
-                  ))}
+                  {movie.highlightedThemes
+                    .slice(0, 3)
+                    .map((theme: any, idx: any) => (
+                      <span
+                        key={idx}
+                        className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full"
+                      >
+                        {theme}
+                      </span>
+                    ))}
                   {movie.highlightedThemes.length > 3 && (
                     <span className="text-xs text-white">
                       +{movie.highlightedThemes.length - 3} more

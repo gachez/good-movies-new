@@ -27,9 +27,16 @@ export default function RatingModal({ movie, open, onOpenChange, onRate }: Ratin
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
 
   const handleRatingSubmit = () => {
-    // Here you would typically save the rating to your backend
-    console.log(`Rated ${movie.title} with ${selectedRating} stars`)
-    onOpenChange(false)
+    if (selectedRating === null) return;
+    
+    // Call the onRate callback with the selected rating
+    onRate(selectedRating);
+    
+    // Log the rating action
+    console.log(`Rated ${movie.title} with ${selectedRating} stars`);
+    
+    // Close the modal
+    onOpenChange(false);
   }
 
   return (
