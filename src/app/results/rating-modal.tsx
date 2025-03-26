@@ -20,9 +20,10 @@ interface RatingModalProps {
   movie: Movie
   open: boolean
   onOpenChange: (open: boolean) => void
+  onRate: (rating: number) => void
 }
 
-export default function RatingModal({ movie, open, onOpenChange }: RatingModalProps) {
+export default function RatingModal({ movie, open, onOpenChange, onRate }: RatingModalProps) {
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
 
   const handleRatingSubmit = () => {
@@ -35,7 +36,7 @@ export default function RatingModal({ movie, open, onOpenChange }: RatingModalPr
     <Dialog open={true} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-center text-xl">Rate "{movie.title}"</DialogTitle>
+          <DialogTitle className="text-center text-xl">How was "{movie.title}"?</DialogTitle>
           <button
             className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
             onClick={() => onOpenChange(false)}
@@ -46,7 +47,6 @@ export default function RatingModal({ movie, open, onOpenChange }: RatingModalPr
         </DialogHeader>
 
         <div className="flex flex-col items-center p-4">
-          <p className="text-center text-sm text-gray-500 mb-6">How would you rate this movie?</p>
 
           <div className="flex justify-center gap-2 mb-8">
             {[1, 2, 3, 4, 5].map((rating) => (

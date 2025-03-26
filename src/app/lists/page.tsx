@@ -27,74 +27,71 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/MovieSearch/Navbar";
-
-interface Movie {
-  id: number;
-  title: string;
-  overview: string;
-  poster_path: string;
-  backdrop_path: string;
-  release_date: string;
-  vote_average: number;
-  popularity: number;
-  genres: string[];
-  matchReason?: string;
-  highlightedThemes?: string[];
-}
-
-interface MovieList {
-  id: string;
-  name: string;
-  movies: Movie[];
-}
-
-const SAMPLE_MOVIES: Movie[] = [
-  {
-    id: 50037,
-    title: "Beyond the Black Rainbow",
-    overview:
-      "Deep within the mysterious Arboria Institute, a disturbed and beautiful girl is held captive by a doctor in search of inner peace. Her mind controlled by a sinister technology. Silently, she waits for her next session with deranged therapist Dr. Barry Nyle. If she hopes to escape, she must journey through the darkest reaches of The Institute, but Nyle wonʼt easily part with his most gifted and dangerous creation.",
-    poster_path: "/uhomcCTQ3lO8L6mLhkCMypsnroO.jpg",
-    backdrop_path: "/fwdmxO4eWWW6gD0F0hf9m7pVnrb.jpg",
-    release_date: "2010-12-03",
-    vote_average: 5.692,
-    popularity: 1.0804,
-    genres: ["Science Fiction", "Horror", "Mystery"],
-    matchReason:
-      "This movie aligns perfectly with your interest in atmospheric sci-fi thrillers with deep psychological elements.",
-    highlightedThemes: [
-      "Mind Control",
-      "Psychological Horror",
-      "Scientific Experiments",
-    ],
-  },
-];
+import { MovieStorage } from "@/utils/movieStorage";
+import { Movie, MovieListItem } from "@/types/movie";
+import { MovieList } from "@/types/movie"; // Make sure MovieList is exported from your types
 
 const getPosterUrl = (path: string) =>
   `https://image.tmdb.org/t/p/original${path}`;
 
 export default function MovieLists() {
-  const [showDetails, setShowDetails] = useState<Movie | null>(null);
-  const [lists, setLists] = useState<MovieList[]>([
-    { id: "watched", name: "Watched & Liked", movies: [] },
-    { id: "watchlater", name: "Watch Later", movies: [] },
-  ]);
+  // Load all lists as MovieList objects
+  const [lists, setLists] = useState<MovieList[]>(() =>
+    MovieStorage.getMovieLists()
+  );
+  const [selectedList, setSelectedList] = useState<MovieList | null>(
+    lists[0] || null
+  );
   const [newListName, setNewListName] = useState("");
-  const [selectedList, setSelectedList] = useState("watched");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState<Movie | null>(null);
 
+  // Movies in the selected list (retrieved from storage for consistency)
+  const [listMovies, setListMovies] = useState<MovieListItem[]>(() =>
+    selectedList ? MovieStorage.getMoviesInList(selectedList.name) : []
+  );
+
+  // Update movies when list selection changes
+  useEffect(() => {
+    if (selectedList) {
+      setListMovies(MovieStorage.getMoviesInList(selectedList.name));
+    }
+  }, [selectedList]);
+
+  // Utility: refresh the lists from storage
+  const refreshLists = () => {
+    const updated = MovieStorage.getMovieLists();
+    setLists(updated);
+    if (!selectedList && updated.length > 0) {
+      setSelectedList(updated[0]);
+    } else if (selectedList) {
+      // Update selectedList reference in case it was modified
+      const sel = updated.find((l) => l.name === selectedList.name);
+      setSelectedList(sel || null);
+    }
+  };
+
+  // Create a new list without adding a dummy movie.
   const handleAddList = () => {
-    if (newListName.trim()) {
-      setLists([
-        ...lists,
-        {
-          id: newListName.toLowerCase().replace(/\s+/g, "-"),
-          name: newListName,
+    const trimmed = newListName.trim();
+    if (trimmed) {
+      const currentLists = MovieStorage.getMovieLists();
+      // Only add if it doesn't already exist
+      if (!currentLists.find((l) => l.name === trimmed)) {
+        const newList: MovieList = {
+          id: Date.now(),
+          name: trimmed,
+          description: "",
           movies: [],
-        },
-      ]);
+        };
+        currentLists.push(newList);
+        MovieStorage.saveMovieLists(currentLists);
+        refreshLists();
+        // Optionally set the new list as selected
+        setSelectedList(newList);
+      }
       setNewListName("");
     }
   };
@@ -105,47 +102,61 @@ export default function MovieLists() {
     }
   };
 
+  const handleRemoveFromList = (movieId: number) => {
+    if (selectedList) {
+      MovieStorage.removeFromList(movieId, selectedList.name);
+      setListMovies(MovieStorage.getMoviesInList(selectedList.name));
+    }
+  };
+
+  const handleClearList = () => {
+    if (selectedList) {
+      MovieStorage.clearList(selectedList.name);
+      setListMovies([]);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white">
       <Navbar />
       <div className="container mt-12 mx-auto px-4 py-8">
-        {/* Add sidebar toggle button in header for mobile */}
+        {/* Header */}
         <div className="mb-8 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                size="icon"
-                className="md:hidden"
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              >
-                <List className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-2xl md:text-4xl font-bold text-gray-900">My Lists</h1>
-                <p className="mt-2 text-sm md:text-base text-gray-600">
-                  Organize and manage your movie collections
-                </p>
-              </div>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            >
+              <List className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl md:text-4xl font-bold text-gray-900">
+                My Lists
+              </h1>
+              <p className="mt-2 text-sm md:text-base text-gray-600">
+                Organize and manage your movie collections
+              </p>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          {/* Make sidebar conditional on mobile */}
-          <div className={`
-            fixed md:relative inset-0 z-30 md:z-auto
-            md:col-span-3 
-            transition-transform duration-300 ease-in-out
-            ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-          `}>
-            {/* Add overlay for mobile */}
-            <div 
+          {/* Sidebar */}
+          <div
+            className={`
+              fixed md:relative inset-0 z-30 md:z-auto
+              md:col-span-3 
+              transition-transform duration-300 ease-in-out
+              ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+            `}
+          >
+            {/* Overlay for mobile */}
+            <div
               className="absolute inset-0 bg-black/20 md:hidden"
               onClick={() => setIsSidebarOpen(false)}
             />
-            
-            {/* Sidebar content */}
             <Card className="relative h-full md:h-auto p-4 max-w-[250px] md:max-w-none">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-800">
@@ -160,7 +171,6 @@ export default function MovieLists() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              
               <div className="space-y-2">
                 <div className="flex gap-2">
                   <Input
@@ -183,9 +193,13 @@ export default function MovieLists() {
                   {lists.map((list) => (
                     <Button
                       key={list.id}
-                      variant={list.id === selectedList ? "secondary" : "ghost"}
+                      variant={selectedList?.name === list.name ? "secondary" : "ghost"}
                       className="w-full justify-start gap-2"
-                      onClick={() => setSelectedList(list.id)}
+                      onClick={() => {
+                        setSelectedList(list);
+                        setListMovies(MovieStorage.getMoviesInList(list.name));
+                        setIsSidebarOpen(false);
+                      }}
                     >
                       <List className="h-4 w-4" />
                       {list.name}
@@ -196,19 +210,19 @@ export default function MovieLists() {
             </Card>
           </div>
 
-          {/* Main content */}
+          {/* Main Content */}
           <div className="col-span-1 md:col-span-9">
             <Card className="p-4 md:p-6">
               <div className="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-0">
                 <div>
                   <h2 className="text-xl md:text-2xl font-bold text-gray-800">
-                    {lists.find((l) => l.id === selectedList)?.name}
+                    {selectedList?.name || "No List Selected"}
                   </h2>
-                  <p className="text-sm text-gray-500">12 movies</p>
+                  <p className="text-sm text-gray-500">
+                    {listMovies.length} movies
+                  </p>
                 </div>
-                {/* Stack buttons vertically on mobile */}
                 <div className="flex flex-col md:flex-row w-full md:w-auto gap-2">
-
                   <Button
                     variant="outline"
                     className="gap-2 border-purple-500 text-purple-500 hover:bg-purple-50"
@@ -218,28 +232,34 @@ export default function MovieLists() {
                   </Button>
                   <Button className="gap-2 bg-purple-500 hover:bg-purple-400 text-white">
                     <Sparkles className="h-4 w-4" />
-                    <span className="hidden md:inline">Get Recommendations Based on List</span>
-                    <span className="inline md:hidden">Get Recommendations</span>
+                    <span className="hidden md:inline">
+                      Get Recommendations Based on List
+                    </span>
+                    <span className="inline md:hidden">
+                      Get Recommendations
+                    </span>
                   </Button>
                 </div>
               </div>
 
-              {/* Movies grid - 1 column on mobile, 2 on tablet, 3 on desktop */}
+              {/* Movies Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                {SAMPLE_MOVIES.map((movie) => (
+                {listMovies.map((movie) => (
                   <Card
                     key={movie.id}
                     className="group overflow-hidden transition-all hover:ring-2 hover:ring-purple-500"
                   >
                     <div className="relative h-[200px] md:h-[300px] w-full">
-                      <div className="absolute top-2 left-2 flex items-center bg-green-500 px-2 py-1 rounded-md text-sm">
-                        <span className="mr-1"><StarIcon className="w-4 h-4 text-white" /></span>
-                        <span className="font-medium text-white">
-                          You rated this 3/5
-                        </span>
-                      </div>
+                      {MovieStorage.getMovieState(movie.id).rating && (
+                        <div className="absolute top-2 left-2 flex items-center bg-green-500 px-2 py-1 rounded-md text-sm">
+                          <StarIcon className="w-4 h-4 text-white mr-1" />
+                          <span className="font-medium text-white">
+                            You rated this {MovieStorage.getMovieState(movie.id).rating}/5
+                          </span>
+                        </div>
+                      )}
                       <img
-                        src={getPosterUrl(movie.backdrop_path)}
+                        src={getPosterUrl(movie.poster_path)}
                         alt={movie.title}
                         className="h-full w-full object-cover transition-transform group-hover:scale-105"
                       />
@@ -248,12 +268,12 @@ export default function MovieLists() {
                         variant="destructive"
                         size="icon"
                         className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100"
+                        onClick={() => handleRemoveFromList(movie.id)}
                       >
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
                     <div className="p-3 md:p-4">
-                      {/* Make text and spacing smaller on mobile */}
                       <div className="mb-2 flex items-center justify-between">
                         <h3 className="text-lg md:text-xl font-semibold text-gray-800 line-clamp-1">
                           {movie.title}
@@ -267,9 +287,7 @@ export default function MovieLists() {
                       </div>
                       <div className="mb-3 flex items-center gap-2 text-sm text-gray-500">
                         <Film className="h-4 w-4" />
-                        <span>
-                          {new Date(movie.release_date).getFullYear()}
-                        </span>
+                        <span>{new Date(movie.release_date).getFullYear()}</span>
                         <span className="text-gray-300">•</span>
                         <span>{movie.genres.slice(0, 2).join(", ")}</span>
                       </div>
@@ -290,7 +308,7 @@ export default function MovieLists() {
         </div>
       </div>
 
-      {/* Make modal more mobile-friendly */}
+      {/* Movie Details Modal */}
       <Dialog
         open={!!showDetails}
         onOpenChange={(open) => !open && setShowDetails(null)}
@@ -322,7 +340,6 @@ export default function MovieLists() {
                     alt={showDetails.title}
                     className="w-full h-full object-cover"
                   />
-
                   <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-900 to-transparent">
                     <div className="flex flex-wrap gap-1">
                       {showDetails.genres.map((genre, idx) => (
@@ -378,7 +395,6 @@ export default function MovieLists() {
                       {new Date(showDetails.release_date).toLocaleDateString()}
                     </span>
                   </div>
-
                   <div>
                     <span className="text-gray-800 font-medium">
                       Popularity:{" "}

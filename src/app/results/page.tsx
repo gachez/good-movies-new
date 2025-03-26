@@ -41,6 +41,9 @@ import axios from "axios";
 import Config from "@/config";
 import { useRouter } from "next/navigation";
 import { LoadingState } from "@/components/LoadingState";
+import { ListSelectionModal } from "@/components/ListSelectionModal";
+import toast, { Toaster } from "react-hot-toast";
+import { MovieStorage } from "@/utils/movieStorage";
 
 export default function SearchResults() {
   const router = useRouter();
@@ -62,7 +65,6 @@ export default function SearchResults() {
     const recommendedMovies = localStorage.getItem(
       "recommededMovies"
     ) as string;
-
     setMoviesFound(JSON.parse(recommendedMovies));
     setSearchQuery(searchValue);
   }, []);
@@ -81,42 +83,35 @@ export default function SearchResults() {
     setShowDetails(movie);
   };
 
-  async function handleSubmit(e:any) {
+  async function handleSubmit(e: any) {
     e.preventDefault();
-
     if (!newMessage.trim()) return;
-
     setSearchQuery(newMessage);
     setNewMessage("");
     setIsTyping(false);
     try {
       setIsLoading(true);
-
       const response = await axios.get(`${Config.API_URL}/api/recommendations`, {
-        params: {
-          query: newMessage,
-        },
-      })
-  
-      console.log("Found results ==> ", response);
-      //set found movies to localStorage
-      localStorage.setItem('recommededMovies', JSON.stringify(response.data.results));
-      localStorage.setItem('searchValue', newMessage);
+        params: { query: newMessage },
+      });
+      // Save results to localStorage
+      localStorage.setItem(
+        "recommededMovies",
+        JSON.stringify(response.data.results)
+      );
+      localStorage.setItem("searchValue", newMessage);
       setIsLoading(false);
-
       setMoviesFound(response.data.results);
     } catch (error) {
       alert("Something went wrong. Please try again.");
       console.log(error);
       setIsLoading(false);
     }
-
   }
 
   const handleMessageSubmit = (e: any) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
-
     setSearchQuery(newMessage);
     setNewMessage("");
     setIsTyping(false);
@@ -135,9 +130,7 @@ export default function SearchResults() {
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-purple-100 to-indigo-100 pb-20">
-      {
-        isLoading ? <LoadingState isLoading={isLoading} /> : null
-      }
+      {isLoading && <LoadingState isLoading={isLoading} />}
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 sticky top-0 z-20 shadow-md">
         <div className="container mx-auto px-4 py-2">
@@ -148,7 +141,6 @@ export default function SearchResults() {
                 FilmRabbit AI
               </span>
             </Link>
-
             <div className="flex items-center space-x-4">
               <Link
                 href="/explore"
@@ -157,7 +149,6 @@ export default function SearchResults() {
                 <Film className="h-5 w-5" />
                 <span className="hidden md:inline">Explore</span>
               </Link>
-
               <Link
                 href="/lists"
                 className="flex items-center space-x-1 text-gray-700 hover:text-gray-900 transition-colors"
@@ -165,7 +156,6 @@ export default function SearchResults() {
                 <List className="h-5 w-5" />
                 <span className="hidden md:inline">Lists</span>
               </Link>
-
               <Link
                 href="/profile"
                 className="flex items-center space-x-1 text-gray-700 hover:text-gray-900 transition-colors"
@@ -218,94 +208,105 @@ export default function SearchResults() {
       </div>
 
       {/* Movie Details Modal */}
-      <Dialog open={!!showDetails} onOpenChange={(open) => !open && setShowDetails(null)}>
-  <DialogContent className="bg-white text-gray-800 border-gray-300 max-w-3xl max-h-[90vh] overflow-y-auto">
-    {showDetails && (
-      <div className="flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold flex items-center justify-between">
-            <span>{showDetails.title} <span className="text-sm font-normal text-gray-500">({new Date(showDetails.release_date).getFullYear()})</span></span>
-            <div className="flex items-center bg-yellow-200 px-2 py-1 rounded text-sm">
-              <Star className="h-4 w-4 text-yellow-500 mr-1" />
-              <span className="font-medium text-yellow-600">{showDetails.vote_average.toFixed(1)}</span>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="flex flex-col mb-4">
-          <div className="w-full aspect-video mb-4 overflow-hidden rounded-md relative">
-            <img
-              src={getPosterUrl(showDetails.poster_path)}
-              alt={showDetails.title}
-              width={500}
-              height={750}
-              className="w-full h-full object-cover"
-            />
-            
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-900 to-transparent">
-              <div className="flex flex-wrap gap-1">
-                {showDetails.genres.map((genre:string, idx:any) => (
-                  <span key={idx} className="text-xs bg-purple-200 text-gray-800 px-2 py-1 rounded-full">
-                    {genre}
+      <Dialog
+        open={!!showDetails}
+        onOpenChange={(open) => !open && setShowDetails(null)}
+      >
+        <DialogContent className="bg-white text-gray-800 border-gray-300 max-w-3xl max-h-[90vh] overflow-y-auto">
+          {showDetails && (
+            <div className="flex flex-col">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-bold flex items-center justify-between">
+                  <span>
+                    {showDetails.title}{" "}
+                    <span className="text-sm font-normal text-gray-500">
+                      ({new Date(showDetails.release_date).getFullYear()})
+                    </span>
                   </span>
-                ))}
+                  <div className="flex items-center bg-yellow-200 px-2 py-1 rounded text-sm">
+                    <Star className="h-4 w-4 text-yellow-500 mr-1" />
+                    <span className="font-medium text-yellow-600">
+                      {showDetails.vote_average.toFixed(1)}
+                    </span>
+                  </div>
+                </DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col mb-4">
+                <div className="w-full aspect-video mb-4 overflow-hidden rounded-md relative">
+                  <img
+                    src={getPosterUrl(showDetails.poster_path)}
+                    alt={showDetails.title}
+                    width={500}
+                    height={750}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-900 to-transparent">
+                    <div className="flex flex-wrap gap-1">
+                      {showDetails.genres.map((genre: string, idx: any) => (
+                        <span
+                          key={idx}
+                          className="text-xs bg-purple-200 text-gray-800 px-2 py-1 rounded-full"
+                        >
+                          {genre}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-gray-700 mb-6">{showDetails.overview}</p>
+                {showDetails.matchReason && (
+                  <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <h3 className="text-sm font-medium text-gray-800 mb-2">
+                      Why we recommend this:
+                    </h3>
+                    <p className="text-sm text-gray-700">
+                      {showDetails.matchReason}
+                    </p>
+                  </div>
+                )}
+                {showDetails.highlightedThemes &&
+                  showDetails.highlightedThemes.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-sm font-medium text-gray-800 mb-2">
+                        Key Themes:
+                      </h3>
+                      <div className="flex gap-2 flex-wrap">
+                        {showDetails.highlightedThemes.map(
+                          (theme: string, idx: any) => (
+                            <Badge
+                              key={idx}
+                              className="bg-indigo-100 text-indigo-800 border-indigo-200"
+                            >
+                              {theme}
+                            </Badge>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+                <div className="flex flex-col space-y-2 mb-4">
+                  <div>
+                    <span className="text-gray-800 font-medium">
+                      Release Date:{" "}
+                    </span>
+                    <span className="text-gray-600">
+                      {new Date(showDetails.release_date).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-800 font-medium">
+                      Popularity:{" "}
+                    </span>
+                    <span className="text-gray-600">
+                      {showDetails.popularity.toFixed(1)}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <p className="text-gray-700 mb-6">{showDetails.overview}</p>
-          
-          {showDetails.matchReason && (
-            <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
-              <h3 className="text-sm font-medium text-gray-800 mb-2">Why we recommend this:</h3>
-              <p className="text-sm text-gray-700">{showDetails.matchReason}</p>
-            </div>
           )}
-          
-          {showDetails.highlightedThemes && showDetails.highlightedThemes.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-800 mb-2">Key Themes:</h3>
-              <div className="flex gap-2 flex-wrap">
-                {showDetails.highlightedThemes.map((theme:string, idx:any) => (
-                  <Badge key={idx} className="bg-indigo-100 text-indigo-800 border-indigo-200">
-                    {theme}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          <div className="flex flex-col space-y-2 mb-4">
-            <div>
-              <span className="text-gray-800 font-medium">Release Date: </span>
-              <span className="text-gray-600">{new Date(showDetails.release_date).toLocaleDateString()}</span>
-            </div>
-            
-            <div>
-              <span className="text-gray-800 font-medium">Popularity: </span>
-              <span className="text-gray-600">{showDetails.popularity.toFixed(1)}</span>
-            </div>
-          </div>
-          
-          <div className="flex justify-between gap-2 mt-2">
-            <Button className="bg-purple-500 hover:bg-purple-400 text-white px-3">
-              <CheckCircle className="h-5 w-5 mr-1" /> 
-              <span className="text-xs">Seen</span>
-            </Button>
-            <Button variant="outline" className="border border-purple-500 text-purple-500 hover:bg-purple-100 px-3">
-              <Plus className="h-5 w-5 mr-1" /> 
-              <span className="text-xs">List</span>
-            </Button>
-            <Button variant="outline" className="border border-purple-500 text-purple-500 hover:bg-purple-100 px-3">
-              <ThumbsUp className="h-5 w-5 mr-1" /> 
-              <span className="text-xs">More</span>
-            </Button>
-          </div>
-        </div>
-      </div>
-    )}
-  </DialogContent>
-</Dialog>
+        </DialogContent>
+      </Dialog>
 
       {/* Fixed Chat Input at Bottom */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md p-3 shadow-lg z-30">
@@ -325,7 +326,6 @@ export default function SearchResults() {
               >
                 <Rabbit size={18} />
               </Button>
-
               <div className="relative flex-grow bg-gray-50 rounded-xl border border-gray-300 overflow-hidden">
                 <textarea
                   ref={messageInputRef}
@@ -334,17 +334,16 @@ export default function SearchResults() {
                     setNewMessage(e.target.value);
                     setIsTyping(true);
                   }}
-                  rows={1}
+                  rows={2}
                   className="w-full px-4 py-2 bg-transparent text-gray-800 placeholder-gray-500 resize-none focus:outline-none"
                   placeholder={
-                    rabbitHoleMode ? "Go deeper..." : "Refine your search..."
+                    rabbitHoleMode
+                      ? "Go deeper..."
+                      : "Ask a question..."
                   }
                 />
-
                 <Button
-                  onClick={(e) => {
-                    handleSubmit(e)
-                  }}
+                  onClick={handleSubmit}
                   className="absolute right-2 bottom-2 bg-purple-500 hover:bg-purple-400 text-white rounded-full p-2 h-auto"
                   disabled={!newMessage.trim()}
                 >
@@ -361,36 +360,73 @@ export default function SearchResults() {
 
 function MovieCard({ movie, onInfoClick, posterUrl }: any) {
   const [showRatingModal, setShowRatingModal] = useState<boolean>(false);
+  const [showListModal, setShowListModal] = useState<boolean>(false);
   const [showLikeAnimation, setShowLikeAnimation] = useState<boolean>(false);
+  const [showDislikeAnimation, setShowDislikeAnimation] = useState<boolean>(false);
   const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
 
+  // Load persisted state for this movie
+  const [movieState, setMovieState] = useState(() =>
+    MovieStorage.getMovieState(movie.id)
+  );
+
+  // When a movie is liked (via double tap or "More like this") we save it in the "Liked 👍" list.
   const handleLikeAnimation = () => {
     setShowLikeAnimation(true);
-    setTimeout(() => setShowLikeAnimation(false), 1000);
+    // Save the liked state and add movie to the "Liked 👍" list.
+    MovieStorage.saveMovieState(movie.id, {
+      isLiked: true,
+      isDisliked: false,
+    });
+    MovieStorage.addToList(movie, "Liked 👍");
+    setMovieState((prev: any) => ({ ...prev, isLiked: true, isDisliked: false }));
+    toast.success("You like this! 🎉");
+    setTimeout(() => setShowLikeAnimation(false), 2000);
+  };
+
+  // When a movie is disliked we add it to the "Not my taste 👎" list.
+  const handleDislikeAnimation = () => {
+    setShowDislikeAnimation(true);
+    MovieStorage.saveMovieState(movie.id, {
+      isLiked: false,
+      isDisliked: true,
+    });
+    MovieStorage.addToList(movie, "Not my taste 👎");
+    setMovieState((prev: any) => ({ ...prev, isLiked: false, isDisliked: true }));
+    toast.success("Cool, not for you! 😐");
+    setTimeout(() => setShowDislikeAnimation(false), 2000);
+  };
+
+  const handleSeenClick = () => {
+    MovieStorage.saveMovieState(movie.id, { isSeen: true });
+    setMovieState((prev: any) => ({ ...prev, isSeen: true }));
+    setShowRatingModal(true);
+    // Add to Watched list
+    MovieStorage.addToList(movie, "Watched ✓");
+    toast.success("Added to your Watched list!");
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Stop event propagation for buttons to work independently
-    if ((e.target as HTMLElement).closest('button, .action-button')) {
+    // Prevent propagation if a button or action element was clicked.
+    if ((e.target as HTMLElement).closest("button, .action-button")) {
       return;
     }
-
     if (clickTimeout) {
-      // Double click detected
+      // Double tap detected
       clearTimeout(clickTimeout);
       setClickTimeout(null);
       handleLikeAnimation();
     } else {
-      // Set timeout for single click
+      // Set a timeout to detect single tap (which shows details)
       const timeout = setTimeout(() => {
         onInfoClick();
         setClickTimeout(null);
-      }, 250); // Wait 250ms to detect if it's a double click
+      }, 250);
       setClickTimeout(timeout);
     }
   };
 
-  // Cleanup timeout on unmount
+  // Cleanup timeout when component unmounts.
   useEffect(() => {
     return () => {
       if (clickTimeout) {
@@ -401,20 +437,54 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
 
   return (
     <div className="h-full p-4 flex flex-col justify-center items-center">
-      {showRatingModal && 
-        <RatingModal movie={movie} open={showRatingModal} onOpenChange={setShowRatingModal} />
-      }
-      <Card 
+      <Toaster />
+      {showRatingModal && (
+        <RatingModal
+          movie={movie}
+          open={showRatingModal}
+          onOpenChange={setShowRatingModal}
+          onRate={(rating) => {
+            MovieStorage.saveMovieState(movie.id, { rating });
+            setMovieState((prev: any) => ({ ...prev, rating }));
+          }}
+        />
+      )}
+      {showListModal && (
+        <ListSelectionModal
+          movie={movie}
+          open={showListModal}
+          onOpenChange={setShowListModal}
+          // ListSelectionModal should fetch available lists from localStorage
+          onListSelected={(listName) => {
+            MovieStorage.addToList(movie, listName);
+            setMovieState((prev: any) => ({
+              ...prev,
+              lists: [...prev.lists, listName],
+            }));
+
+            toast.success(`Added to your ${listName} list!`);
+          }}
+        />
+      )}
+      <Card
         className="mx-auto bg-transparent shadow-xl border border-gray-300 overflow-hidden max-w-md w-full hover:shadow-2xl transition-shadow duration-300 relative"
         onClick={handleCardClick}
       >
         <div className="relative aspect-[2/3] w-full h-full">
           {showLikeAnimation && (
             <div className="absolute inset-0 flex items-center justify-center z-50 animate-like-popup">
-              <span className="text-orange-500" style={{ fontSize: '6rem' }}>👍</span>
+              <span className="text-orange-500" style={{ fontSize: "6rem" }}>
+                👍
+              </span>
             </div>
           )}
-
+          {showDislikeAnimation && (
+            <div className="absolute inset-0 flex items-center justify-center z-50 animate-like-popup">
+              <span className="text-red-500" style={{ fontSize: "6rem" }}>
+                👎
+              </span>
+            </div>
+          )}
           <img
             src={posterUrl}
             alt={movie.title}
@@ -423,11 +493,12 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
-
-          {/* Movie info overlay at top/middle */}
+          {/* Movie info overlay */}
           <div className="absolute bottom-24 left-0 right-0 p-4">
             <div className="flex justify-between items-start mb-2">
-              <h2 className="text-xl font-bold text-white line-clamp-2">{movie.title}</h2>
+              <h2 className="text-xl font-bold text-white line-clamp-2">
+                {movie.title}
+              </h2>
               <div className="flex items-center bg-yellow-200 px-2 py-1 rounded-md text-sm">
                 <span className="mr-1">⭐</span>
                 <span className="font-medium text-yellow-600">
@@ -435,13 +506,11 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
                 </span>
               </div>
             </div>
-
             <div className="flex items-center text-sm text-white mb-2">
               <span>{new Date(movie.release_date).getFullYear()}</span>
               <span className="mx-2">•</span>
               <span>Popularity: {movie.popularity.toFixed(1)}</span>
             </div>
-
             <div className="flex flex-wrap gap-1 mb-3">
               {movie.genres &&
                 movie.genres.slice(0, 3).map((genre: any, index: number) => (
@@ -453,21 +522,19 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
                   </span>
                 ))}
               {movie.genres && movie.genres.length > 3 && (
-                <span className="text-xs text-white">+{movie.genres.length - 3} more</span>
+                <span className="text-xs text-white">
+                  +{movie.genres.length - 3} more
+                </span>
               )}
             </div>
-
-            {/* Match Reason Section */}
             {movie.matchReason && (
               <div className="bg-white/90 backdrop-blur-sm p-2 rounded-md mb-3 text-sm">
-                <p className="font-medium text-gray-800 mb-1">Why we recommend:</p>
-                <p className="text-gray-700 line-clamp-2">
-                  {movie.matchReason}
+                <p className="font-medium text-gray-800 mb-1">
+                  Why we recommend:
                 </p>
+                <p className="text-gray-700 line-clamp-2">{movie.matchReason}</p>
               </div>
             )}
-
-            {/* Highlighted Themes Section */}
             {movie.highlightedThemes && movie.highlightedThemes.length > 0 && (
               <div className="mb-3">
                 <p className="font-medium text-white text-sm mb-1">
@@ -483,58 +550,95 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
                     </span>
                   ))}
                   {movie.highlightedThemes.length > 3 && (
-                    <span className="text-xs text-white">+{movie.highlightedThemes.length - 3} more</span>
+                    <span className="text-xs text-white">
+                      +{movie.highlightedThemes.length - 3} more
+                    </span>
                   )}
                 </div>
               </div>
             )}
           </div>
-
           <div className="absolute top-2 left-2 flex items-center bg-green-500 px-2 py-1 rounded-md text-sm">
-                <span className="mr-1"><StarIcon className="w-4 h-4 text-white" /></span>
-                <span className="font-medium text-white">
-                  {movie.relevanceScore.toFixed(1) * 100}% Match
-                </span>
-              </div>
-
-          {/* Update action buttons to prevent event propagation */}
+            <span className="mr-1">
+              <StarIcon className="w-4 h-4 text-white" />
+            </span>
+            <span className="font-medium text-white">
+              {(movie.relevanceScore * 100).toFixed(1)}% Match
+            </span>
+          </div>
+          {/* Action buttons */}
           <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm py-2">
             <div className="flex justify-between px-2">
-              <div 
+              <div
+                className={`action-button flex flex-col items-center justify-center p-1 cursor-pointer ${
+                  movieState.isSeen ? "bg-green-500/20 rounded-lg" : ""
+                }`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowRatingModal(true);
-                }} 
-                className="action-button flex flex-col items-center justify-center p-1 cursor-pointer"
+                  handleSeenClick();
+                }}
               >
-                <span className="text-green-500" style={{fontSize: '2.5rem'}}>✓</span>
+                <span
+                  className={`${
+                    movieState.isSeen ? "text-green-400" : "text-green-500"
+                  }`}
+                  style={{ fontSize: "2.5rem" }}
+                >
+                  ✓
+                </span>
                 <span className="text-xs text-white">Seen</span>
               </div>
-              
-              <div 
+              <div
                 className="action-button flex flex-col items-center justify-center p-1 cursor-pointer"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowListModal(true);
+                }}
               >
-                <span className="text-lg text-blue-500" style={{fontSize: '2.5rem'}}>+</span>
+                <span
+                  className="text-lg text-blue-500"
+                  style={{ fontSize: "2.5rem" }}
+                >
+                  +
+                </span>
                 <span className="text-xs text-white">Add to list</span>
               </div>
-              
-              <div 
-                className="action-button flex flex-col items-center justify-center p-1 cursor-pointer"
-                onClick={(e) => e.stopPropagation()}
+              <div
+                className={`action-button flex flex-col items-center justify-center p-1 cursor-pointer ${
+                  movieState.isDisliked ? "bg-red-500/20 rounded-lg" : ""
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDislikeAnimation();
+                }}
               >
-                <span className="text-lg text-orange-500" style={{fontSize: '2.5rem'}}>👎</span>
+                <span
+                  className={`${
+                    movieState.isDisliked ? "text-red-400" : "text-red-500"
+                  }`}
+                  style={{ fontSize: "2.5rem" }}
+                >
+                  👎
+                </span>
                 <span className="text-xs text-white">Not for me</span>
               </div>
-              
-              <div 
+              <div
+                className={`action-button flex flex-col items-center justify-center p-1 cursor-pointer ${
+                  movieState.isLiked ? "bg-orange-500/20 rounded-lg" : ""
+                }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleLikeAnimation();
                 }}
-                className="action-button flex flex-col items-center justify-center p-1 cursor-pointer"
               >
-                <span className="text-lg text-orange-500" style={{fontSize: '2.5rem'}}>👍</span>
+                <span
+                  className={`${
+                    movieState.isLiked ? "text-orange-400" : "text-orange-500"
+                  }`}
+                  style={{ fontSize: "2.5rem" }}
+                >
+                  👍
+                </span>
                 <span className="text-xs text-white">More like this</span>
               </div>
             </div>
@@ -544,89 +648,3 @@ function MovieCard({ movie, onInfoClick, posterUrl }: any) {
     </div>
   );
 }
-// Sample data from the new format
-// const movies = [
-//   {
-//     "adult": false,
-//     "backdrop_path": "/tuTjxEHUQWqbFkuoSY3RWu7lSob.jpg",
-//     "genre_ids": [35, 18, 878, 53],
-//     "id": 1178556,
-//     "original_language": "nl",
-//     "original_title": "Ik ben geen robot",
-//     "overview": "A music producer spirals into an existential crisis after repeatedly failing a CAPTCHA test-leading her to question whether she might actually be a robot.",
-//     "popularity": 22.389,
-//     "poster_path": "/tlkpqKiJ2IRV4d0pjhso29AzESj.jpg",
-//     "release_date": "2025-03-20",
-//     "title": "I'm Not a Robot",
-//     "video": false,
-//     "vote_average": 8,
-//     "vote_count": 1,
-//     "relevanceScore": 5.91,
-//     "genres": ["Comedy", "Drama", "Science Fiction", "Thriller"],
-//     "matchReason": "The theme of questioning one's own identity in a technological and digital age aligns well with elements of innovation and coding. While not directly about software development or startups, it carries a tech-oriented existential theme that ties into the user's interests.",
-//     "highlightedThemes": ["technology", "existential tech crisis"],
-//     "hasContentAnalysis": true
-//   },
-//   {
-//     "adult": false,
-//     "backdrop_path": "/uzobkEgGCfVzmXyXKH6Nbrby4Rm.jpg",
-//     "genre_ids": [35, 18],
-//     "id": 188222,
-//     "original_language": "en",
-//     "original_title": "Entourage",
-//     "overview": "Movie star Vincent Chase, together with his boys, Eric, Turtle and Johnny, are back…and back in business with super agent-turned-studio head Ari Gold. Some of their ambitions have changed, but the bond between them remains strong as they navigate the capricious and often cutthroat world of Hollywood.",
-//     "popularity": 5.84,
-//     "poster_path": "/28dqsx1jCxhR05DfH35ui13ywNZ.jpg",
-//     "release_date": "2015-06-03",
-//     "title": "Entourage",
-//     "video": false,
-//     "vote_average": 6.2,
-//     "vote_count": 1027,
-//     "relevanceScore": 3.4930000000000003,
-//     "genres": ["Comedy", "Drama"],
-//     "matchReason": "While 'Entourage' revolves around ambition and navigating a competitive world, it focuses on the entertainment industry rather than startups or technology. It has minimal relevance to coding or software development.",
-//     "highlightedThemes": ["entrepreneurship", "ambition"],
-//     "hasContentAnalysis": true
-//   },
-//   {
-//     "adult": false,
-//     "backdrop_path": "/gXboplsdDKprKA46IptKwDgY6Nr.jpg",
-//     "genre_ids": [18, 35],
-//     "id": 194662,
-//     "original_language": "en",
-//     "original_title": "Birdman or (The Unexpected Virtue of Ignorance)",
-//     "overview": "A fading actor best known for his portrayal of a popular superhero attempts to mount a comeback by appearing in a Broadway play. As opening night approaches, his attempts to become more altruistic, rebuild his career, and reconnect with friends and family prove more difficult than expected.",
-//     "popularity": 6.106,
-//     "poster_path": "/rHUg2AuIuLSIYMYFgavVwqt1jtc.jpg",
-//     "release_date": "2014-10-17",
-//     "title": "Birdman or (The Unexpected Virtue of Ignorance)",
-//     "video": false,
-//     "vote_average": 7.459,
-//     "vote_count": 12942,
-//     "relevanceScore": 3.161885,
-//     "genres": ["Drama", "Comedy"],
-//     "matchReason": "Although innovation and creative struggles are depicted in 'Birdman,' the focus is on the arts and personal redemption rather than technology or software development.",
-//     "highlightedThemes": ["ambition", "creative struggle"],
-//     "hasContentAnalysis": true
-//   },
-//   {
-//     "adult": false,
-//     "backdrop_path": "/43aKOAWBaQYYef9EmtwL7N1zNIc.jpg",
-//     "genre_ids": [35, 18],
-//     "id": 1000866,
-//     "original_language": "fr",
-//     "original_title": "En fanfare",
-//     "overview": "Diagnosed with leukemia, a successful orchestra conductor learns that he is adopted, and his younger brother is in a village marching band. The conductor decides to help them win a regional contest.",
-//     "popularity": 5.833,
-//     "poster_path": "/yRj1mh4vMkPHloXm8rKsqBEPiIf.jpg",
-//     "release_date": "2024-11-27",
-//     "title": "Marching Band",
-//     "video": false,
-//     "vote_average": 7.5,
-//     "vote_count": 221,
-//     "relevanceScore": 2.675,
-//     "genres": ["Comedy", "Drama"],
-//     "matchReason": "This film focuses on music and personal connections rather than technology or startups, making it less relevant to the search for software development themes.",
-//     "highlightedThemes": ["personal growth", "mentorship"]
-//   }
-// ];
