@@ -236,36 +236,7 @@ export default function ProfilePage() {
         </section>
 
         <section className="mt-7">
-          <div className="mb-4 flex gap-3 overflow-x-auto pb-2">
-            {likedMovies.slice(0, 8).map((movie) => (
-              <Link
-                key={movie.id}
-                href={`/movie/${movie.id}?type=${movie.mediaType === "tv" ? "tv" : "movie"}`}
-                className="w-20 shrink-0"
-              >
-                <div className="relative h-20 w-20 overflow-hidden rounded-full border-4 border-[#28323a] bg-white/5">
-                  <Image
-                    src={posterUrl(movie.poster_path)}
-                    alt={movie.title}
-                    fill
-                    sizes="80px"
-                    className="object-cover"
-                  />
-                </div>
-                <p className="mt-2 truncate text-center text-xs text-white/70">
-                  {movie.title}
-                </p>
-              </Link>
-            ))}
-            {likedMovies.length === 0 && (
-              <Link
-                href="/"
-                className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border border-dashed border-white/25 text-white/60"
-              >
-                <Heart className="h-7 w-7" />
-              </Link>
-            )}
-          </div>
+ 
 
           <div className="grid grid-cols-3 gap-3 rounded-md border border-white/10 bg-white/[0.03] p-2">
             <button
