@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">FilmRabbit mascot logo</title>
+  <desc id="desc">A dark blue FilmRabbit app icon with a cyan meditating rabbit mascot.</desc>
+  <defs>
+    <linearGradient id="bg" x1="96" y1="32" x2="416" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#071118"/>
+      <stop offset="1" stop-color="#05080b"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="140" y1="96" x2="372" y2="424" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e0fbff"/>
+      <stop offset="0.42" stop-color="#67e8f9"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#67e8f9" flood-opacity="0.26"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="#05080b" opacity="0.36"/>
+  <circle cx="256" cy="262" r="184" fill="#67e8f9" opacity="0.12"/>
+  <circle cx="256" cy="262" r="160" fill="none" stroke="#67e8f9" stroke-width="18" opacity="0.9"/>
+
+  <g filter="url(#glow)">
+    <path fill="url(#cyan)" d="M204 171c-18-48-7-103 33-137 35 43 43 101 20 146 28-48 78-82 138-87 8 65-21 126-74 160 35 21 58 58 58 100 0 71-56 118-123 118s-123-47-123-118c0-42 23-79 58-100-11-23-12-52 13-82Z"/>
+    <path fill="#071118" d="M217 250c13 0 24 11 24 24s-11 24-24 24-24-11-24-24 11-24 24-24Zm78 0c13 0 24 11 24 24s-11 24-24 24-24-11-24-24 11-24 24-24Z"/>
+    <path fill="#071118" d="M225 353c22 19 51 19 73 0-6 30-67 30-73 0Z"/>
+    <path fill="#0b1f2a" d="M172 395c24-22 51-34 84-34s60 12 84 34c-22 37-52 57-84 57s-62-20-84-57Z" opacity="0.72"/>
+    <path fill="#67e8f9" d="M150 382c31 20 68 28 106 28s75-8 106-28c-18 54-55 83-106 83s-88-29-106-83Z"/>
+    <path fill="#071118" d="M172 402c21 10 47 15 84 15s63-5 84-15c-18 25-47 38-84 38s-66-13-84-38Z" opacity="0.38"/>
+  </g>
+</svg>

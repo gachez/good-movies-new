@@ -45,7 +45,7 @@ export const MoodChipsSection = () => {
 
   return (
     <div className="w-full max-w-6xl mt-8">
-      {categories.map((category, categoryIndex) => (
+      {categories.map((category) => (
         <div key={category.title} className="mb-6">
           <h3 className="text-lg font-semibold text-violet-900 mb-3 px-4">
             {category.title}

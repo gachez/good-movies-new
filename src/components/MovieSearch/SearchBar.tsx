@@ -3,9 +3,7 @@
 import { Search, Rabbit } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-
-
+import type { MouseEvent } from 'react';
 
 const searchExamples = [
   "A mind-bending sci-fi like Inception but with more emotional depth",
@@ -15,8 +13,13 @@ const searchExamples = [
   "A thriller that keeps you guessing until the very end like Memento",
 ];
 
-export const SearchBar = (props:any) => {
-  const router = useRouter();
+interface SearchBarProps {
+  handleSubmit: (event: MouseEvent<HTMLButtonElement>) => void;
+  searchValue: string;
+  setSearchValue: (value: string) => void;
+}
+
+export const SearchBar = (props: SearchBarProps) => {
   const [isRabbitHole, setIsRabbitHole] = useState(false);
   const [currentExample, setCurrentExample] = useState(0);
 

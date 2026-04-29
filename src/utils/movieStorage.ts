@@ -7,9 +7,20 @@ export interface MovieList {
 
 import { Movie, MovieState, MovieListItem } from '@/types/movie';
 
+const defaultMovieState = (): MovieState => ({
+  isLiked: false,
+  isDisliked: false,
+  isSeen: false,
+  lists: [],
+  lastModified: new Date().toISOString()
+});
+
+const canUseStorage = () => typeof window !== 'undefined' && !!window.localStorage;
+
 export const MovieStorage = {
   // Helper: Get all movie lists from storage as an array of MovieList objects.
   getMovieLists: (): MovieList[] => {
+    if (!canUseStorage()) return [];
     const lists = localStorage.getItem('movieLists');
     const parsedLists = lists ? JSON.parse(lists) : [];
     return Array.isArray(parsedLists) ? parsedLists : [];
@@ -17,35 +28,24 @@ export const MovieStorage = {
 
   // Helper: Save an array of MovieList objects to storage.
   saveMovieLists: (lists: MovieList[]) => {
+    if (!canUseStorage()) return;
     localStorage.setItem('movieLists', JSON.stringify(lists));
   },
 
   // Get movie state
   getMovieState: (movieId: number): MovieState => {
+    if (!canUseStorage()) return defaultMovieState();
     const states = localStorage.getItem('movieStates');
     if (states) {
       const parsed = JSON.parse(states);
-      return (
-        parsed[movieId] || {
-          isLiked: false,
-          isDisliked: false,
-          isSeen: false,
-          lists: [],
-          lastModified: new Date().toISOString()
-        }
-      );
+      return parsed[movieId] || defaultMovieState();
     }
-    return {
-      isLiked: false,
-      isDisliked: false,
-      isSeen: false,
-      lists: [],
-      lastModified: new Date().toISOString()
-    };
+    return defaultMovieState();
   },
 
   // Save movie state
   saveMovieState: (movieId: number, state: Partial<MovieState>) => {
+    if (!canUseStorage()) return;
     const states = localStorage.getItem('movieStates');
     const currentStates = states ? JSON.parse(states) : {};
     
@@ -64,7 +64,7 @@ export const MovieStorage = {
       return;
     }
 
-    let lists = MovieStorage.getMovieLists() || [];
+    const lists = MovieStorage.getMovieLists() || [];
     // Try to find an existing list with the same name
     let list = lists.find(l => l.name === listName);
     
@@ -108,7 +108,7 @@ export const MovieStorage = {
 
   // Remove movie from list (by list name)
   removeFromList: (movieId: number, listName: string) => {
-    let lists = MovieStorage.getMovieLists();
+    const lists = MovieStorage.getMovieLists();
     const listIndex = lists.findIndex(l => l.name === listName);
     if (listIndex !== -1) {
       lists[listIndex].movies = lists[listIndex].movies.filter((m: MovieListItem) => m.id !== movieId);
@@ -137,7 +137,7 @@ export const MovieStorage = {
 
   // Clear a list (remove all movies) by list name
   clearList: (listName: string) => {
-    let lists = MovieStorage.getMovieLists();
+    const lists = MovieStorage.getMovieLists();
     const listIndex = lists.findIndex(l => l.name === listName);
     if (listIndex !== -1) {
       // Update states for all movies in the list
