@@ -6,6 +6,7 @@ import {
   MovieInteractionAction,
   upsertMovieInteraction,
 } from "@/lib/user-movies";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { Movie } from "@/types/movie";
 
 export const runtime = "nodejs";
@@ -61,6 +62,19 @@ export async function POST(request: NextRequest) {
     movie: body.movie,
     action: body.action,
     value: body.value ?? null,
+  });
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: session.user.id,
+    event: "movie_interaction_recorded",
+    properties: {
+      action: body.action,
+      movie_id: body.movie.id,
+      media_type: body.movie.mediaType === "tv" ? "tv" : "movie",
+      title: body.movie.title,
+      value: body.value ?? null,
+    },
   });
 
   return NextResponse.json({ ok: true });

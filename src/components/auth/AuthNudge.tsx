@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Mail, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import posthog from "posthog-js";
 import { authClient } from "@/lib/auth-client";
 
 function getAuthError(result: unknown) {
@@ -25,16 +26,22 @@ export function AuthNudge({
   open,
   onOpenChange,
   onAuthed,
+  initialMode = "signin",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAuthed?: () => void;
+  initialMode?: "signin" | "signup";
 }) {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) setMode(initialMode);
+  }, [initialMode, open]);
 
   const handleGoogle = async () => {
     const result = await authClient.signIn.social({
@@ -66,6 +73,17 @@ export function AuthNudge({
       if (error) {
         toast.error(error);
         return;
+      }
+
+      const userId = (result as { data?: { user?: { id?: string; name?: string; email?: string } } })?.data?.user?.id;
+      if (userId) {
+        posthog.identify(userId, { email, name: name || undefined });
+      }
+
+      if (mode === "signup") {
+        posthog.capture("user_signed_up", { method: "email" });
+      } else {
+        posthog.capture("user_signed_in", { method: "email" });
       }
 
       toast.success("You are signed in.");

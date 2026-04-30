@@ -18,6 +18,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { AppNav } from "@/components/AppNav";
 import { AuthNudge } from "@/components/auth/AuthNudge";
 import { BackButton } from "@/components/BackButton";
+import { BrandLink } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
@@ -282,9 +283,7 @@ export function ListDetailView({ listId }: { listId: string }) {
             fallbackHref="/profile?tab=lists"
             className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]"
           />
-          <Link href="/" className="text-xl font-bold tracking-tight">
-            FlickBuddy
-          </Link>
+          <BrandLink className="text-xl" />
         </header>
 
         {isLoading ? (

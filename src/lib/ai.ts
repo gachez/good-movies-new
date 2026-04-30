@@ -1,27 +1,9 @@
 import { AzureOpenAI } from "openai";
 import createClient from "@azure-rest/ai-inference";
 import { AzureKeyCredential } from "@azure/core-auth";
+import { getRequiredEnv } from "@/lib/env";
 
-// --- CONFIGURATION ---
-
-const apiKey = process.env.AZURE_OPENAI_KEY as string;
-const apiVersion = process.env.AZURE_OPENAI_API_VERSION as string;
-const endpoint = process.env.AZURE_OPENAI_ENDPOINT as string;
-const deployment = process.env.AZURE_OPENAI_DEPLOYMENT as string;
-
-const azureAIApiKey = process.env.AZURE_AI_API_KEY as string;
-
-const anthropicApiKey = process.env.AZURE_ANTHROPIC_API_KEY as string;
-const anthropicEndpoint = process.env.AZURE_ANTHROPIC_ENDPOINT as string;
-
-// --- CLIENTS ---
-
-const openaiClient = new AzureOpenAI({
-  endpoint,
-  apiKey,
-  apiVersion,
-  deployment,
-});
+let openaiClient: AzureOpenAI | null = null;
 
 // --- MODEL ROUTING LOGIC ---
 
@@ -52,7 +34,10 @@ async function generateWithServerless(
   const endpoint = SERVERLESS_ENDPOINTS[model];
   if (!endpoint) throw new Error(`No endpoint for model: ${model}`);
 
-  const client = createClient(endpoint, new AzureKeyCredential(azureAIApiKey));
+  const client = createClient(
+    endpoint,
+    new AzureKeyCredential(getRequiredEnv("AZURE_AI_API_KEY"))
+  );
   const response = await client.path("/chat/completions").post({
     body: {
       messages: [{ role: "user", content: prompt }],
@@ -86,6 +71,8 @@ async function generateWithAnthropicREST(
   temperature: number,
   max_tokens: number
 ): Promise<string> {
+  const anthropicApiKey = getRequiredEnv("AZURE_ANTHROPIC_API_KEY");
+  const anthropicEndpoint = getRequiredEnv("AZURE_ANTHROPIC_ENDPOINT");
   const baseUrl = anthropicEndpoint?.endsWith("/")
     ? anthropicEndpoint.slice(0, -1)
     : anthropicEndpoint;
@@ -124,6 +111,15 @@ async function generateWithAzureOpenAI(
   _temperature: number,
   max_tokens: number
 ): Promise<string> {
+  if (!openaiClient) {
+    openaiClient = new AzureOpenAI({
+      endpoint: getRequiredEnv("AZURE_OPENAI_ENDPOINT"),
+      apiKey: getRequiredEnv("AZURE_OPENAI_KEY"),
+      apiVersion: getRequiredEnv("AZURE_OPENAI_API_VERSION"),
+      deployment: getRequiredEnv("AZURE_OPENAI_DEPLOYMENT"),
+    });
+  }
+
   // Newer Azure OpenAI models (gpt-4.1, gpt-5+) do not accept `temperature` —
   // omit it entirely to avoid 400 errors.
   const response = await openaiClient.chat.completions.create({

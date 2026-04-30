@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { betaLimitHeaders, consumeBetaLimit } from "@/lib/beta-limits";
 import { ensureBackendReady } from "@/lib/auth-migrations";
 import { generateChatCompletionWithModel } from "@/lib/ai";
 import {
@@ -598,6 +599,25 @@ export async function GET(request: NextRequest) {
       discoveryMatches: results,
       results,
     });
+  }
+
+  const betaLimit = consumeBetaLimit({
+    request,
+    userId,
+    action: "ai_discover",
+  });
+
+  if (!betaLimit.allowed) {
+    return NextResponse.json(
+      {
+        error:
+          "You have reached today's beta AI discovery limit. Try again tomorrow.",
+      },
+      {
+        status: 429,
+        headers: betaLimitHeaders(betaLimit),
+      }
+    );
   }
 
   const intent = await getDiscoverIntent(query, mode, taste);

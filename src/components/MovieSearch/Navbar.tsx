@@ -1,8 +1,9 @@
 'use client';
 
-import { Film, Search, User, Rabbit } from 'lucide-react';
+import { Film, Search, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { BrandLogo } from '@/components/BrandLogo';
 
 export const Navbar = () => {
   return (
@@ -14,7 +15,7 @@ export const Navbar = () => {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            <Rabbit className="h-8 w-8 text-white" />
+            <BrandLogo size={32} />
             <span className="text-2xl font-bold text-white hidden lg:block">FlickBuddy AI</span>
           </Link>
           

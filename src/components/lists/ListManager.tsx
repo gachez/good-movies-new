@@ -16,6 +16,7 @@ import {
 import toast, { Toaster } from "react-hot-toast";
 import { AppNav } from "@/components/AppNav";
 import { AuthNudge } from "@/components/auth/AuthNudge";
+import { BrandLink } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
@@ -297,9 +298,7 @@ export function ListManager() {
       <main className="min-h-dvh bg-[#05080b] pb-24 text-white">
         <Toaster position="top-center" />
         <section className="mx-auto max-w-xl px-5 pt-8">
-          <Link href="/" className="text-xl font-bold">
-            FlickBuddy
-          </Link>
+          <BrandLink className="text-xl" />
           <div className="mt-10 rounded-md border border-white/10 bg-white/[0.04] p-6 text-center">
             <Clapperboard className="mx-auto h-10 w-10 text-cyan-200" />
             <h1 className="mt-4 text-2xl font-black">Create movie lists</h1>
@@ -334,9 +333,7 @@ export function ListManager() {
       <section className="mx-auto max-w-6xl px-4 pb-8 pt-5">
         <header className="flex items-center justify-between gap-4">
           <div>
-            <Link href="/" className="text-xl font-bold tracking-tight">
-              FlickBuddy
-            </Link>
+            <BrandLink className="text-xl" />
             <h1 className="mt-5 text-3xl font-black sm:text-5xl">Lists</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">
               Build private movie and series collections. Sharing a list turns

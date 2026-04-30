@@ -96,5 +96,64 @@ export function ensureAppTables() {
       genre_weights TEXT NOT NULL DEFAULT '{}',
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS user_entitlement (
+      user_id TEXT PRIMARY KEY,
+      plan TEXT NOT NULL DEFAULT 'beta',
+      ai_daily_limit INTEGER,
+      pro_expires_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS beta_usage (
+      id TEXT PRIMARY KEY,
+      identity_key TEXT NOT NULL,
+      user_id TEXT,
+      action TEXT NOT NULL,
+      period_key TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      limit_count INTEGER NOT NULL,
+      reset_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(identity_key, action, period_key)
+    );
+
+    CREATE INDEX IF NOT EXISTS beta_usage_identity_idx
+      ON beta_usage(identity_key, action, period_key);
+
+    CREATE TABLE IF NOT EXISTS analytics_event (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      anonymous_id TEXT,
+      event_name TEXT NOT NULL,
+      movie_id INTEGER,
+      media_type TEXT,
+      metadata TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS analytics_event_name_idx
+      ON analytics_event(event_name, created_at);
+
+    CREATE INDEX IF NOT EXISTS analytics_event_user_idx
+      ON analytics_event(user_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS feedback_event (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      anonymous_id TEXT,
+      movie_id INTEGER,
+      media_type TEXT,
+      feedback TEXT NOT NULL,
+      source TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      metadata TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS feedback_event_feedback_idx
+      ON feedback_event(feedback, created_at);
   `);
 }

@@ -11,6 +11,7 @@ import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { ListSelectionModal } from "@/components/ListSelectionModal";
 import { authClient } from "@/lib/auth-client";
 import { Movie } from "@/types/movie";
+import posthog from "posthog-js";
 import { MovieStorage } from "@/utils/movieStorage";
 import { shareOrCopy } from "@/utils/share";
 
@@ -35,8 +36,14 @@ export default function MovieSharePage() {
         if (!response.ok) throw new Error("Movie not found");
         const data = (await response.json()) as { result: Movie };
         setMovie(data.result);
+        posthog.capture("movie_detail_viewed", {
+          movie_id: data.result.id,
+          media_type: mediaType,
+          title: data.result.title,
+        });
       } catch (error) {
         console.error(error);
+        posthog.captureException(error);
         toast.error("Could not load this movie.");
       } finally {
         setIsLoading(false);
@@ -52,7 +59,7 @@ export default function MovieSharePage() {
       setAuthOpen(true);
       return;
     }
-    const url = window.location.href;
+    const url = `${window.location.origin}/share/movie/${movie.id}?type=${movie.mediaType === "tv" ? "tv" : "movie"}`;
     try {
       const result = await shareOrCopy({
         title: movie.title,

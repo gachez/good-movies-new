@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestSession } from "@/lib/api-session";
+import { betaLimitHeaders, consumeBetaLimit } from "@/lib/beta-limits";
 import {
   getStoredTasteProfile,
   isTasteProfileFresh,
@@ -26,6 +27,27 @@ export async function POST(request: NextRequest) {
       profile: existing,
       refreshed: false,
     });
+  }
+
+  const betaLimit = consumeBetaLimit({
+    request,
+    userId: session.user.id,
+    action: "ai_profile_refresh",
+  });
+
+  if (!betaLimit.allowed) {
+    return NextResponse.json(
+      {
+        profile: existing,
+        refreshed: false,
+        error:
+          "You have reached today's beta taste refresh limit. Your existing profile will keep working.",
+      },
+      {
+        status: existing ? 200 : 429,
+        headers: betaLimitHeaders(betaLimit),
+      }
+    );
   }
 
   try {

@@ -1,3 +1,5 @@
+import { getRequiredEnv } from "@/lib/env";
+
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
 // Static genre map so we can resolve genre_ids → names without an extra API call
@@ -158,7 +160,7 @@ async function fetchTMDB<T>(
   path: string,
   params: Record<string, string | number | boolean> = {}
 ): Promise<T | null> {
-  const apiKey = process.env.TMDB_API_KEY;
+  const apiKey = getRequiredEnv("TMDB_API_KEY");
   if (!apiKey) {
     console.error("TMDB_API_KEY is not configured");
     return null;

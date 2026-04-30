@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { PWARegister } from "@/components/PWARegister";
 import "./globals.css";
 
@@ -19,24 +20,25 @@ export const metadata: Metadata = {
     default: "FlickBuddy",
     template: "%s | FlickBuddy",
   },
-  description: "A personalized movie recommendation feed.",
+  description: "A personalized movie and series discovery app.",
   applicationName: "FlickBuddy",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
       {
-        url: "/icons/FlickBuddy-mascot.svg",
-        type: "image/svg+xml",
+        url: "/icons/flickbuddy-192.png",
+        sizes: "192x192",
+        type: "image/png",
       },
       {
-        url: "/icons/FlickBuddy-mascot-192.png",
-        sizes: "192x192",
+        url: "/icons/flickbuddy-512.png",
+        sizes: "512x512",
         type: "image/png",
       },
     ],
     apple: [
       {
-        url: "/icons/FlickBuddy-mascot-192.png",
+        url: "/icons/flickbuddy-192.png",
         sizes: "192x192",
         type: "image/png",
       },
@@ -57,10 +59,10 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/icons/FlickBuddy-mascot.jpg",
-        width: 1024,
-        height: 1024,
-        alt: "FlickBuddy mascot logo",
+        url: "/icons/flickbuddy.png",
+        width: 625,
+        height: 625,
+        alt: "FlickBuddy logo",
       },
     ],
   },
@@ -77,6 +79,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <PWARegister />
+        <PWAInstallPrompt />
         {children}
       </body>
     </html>

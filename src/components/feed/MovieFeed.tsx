@@ -12,16 +12,20 @@ import {
   Play,
   Send,
   Star,
+  Volume2,
   VolumeX,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { AppNav } from "@/components/AppNav";
 import { AuthNudge } from "@/components/auth/AuthNudge";
+import { BrandLink } from "@/components/BrandLogo";
 import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { ListSelectionModal } from "@/components/ListSelectionModal";
+import { TasteOnboarding } from "@/components/onboarding/TasteOnboarding";
 import { authClient } from "@/lib/auth-client";
 import { Movie, MovieReview } from "@/types/movie";
 import { MovieStorage } from "@/utils/movieStorage";
+import { getClientId, sendFeedback, trackEvent } from "@/utils/analytics";
 import { shareOrCopy } from "@/utils/share";
 import type { MovieInteractionAction } from "@/lib/user-movies";
 
@@ -30,6 +34,8 @@ interface FeedTastePayload {
   dislikedMovieIds: number[];
   savedMovieIds: number[];
   watchedMovieIds: number[];
+  likedSeeds: MediaSeed[];
+  savedSeeds: MediaSeed[];
   likedGenres: string[];
   dislikedGenres: string[];
   excludeMovieIds: number[];
@@ -37,9 +43,20 @@ interface FeedTastePayload {
   cursor?: number;
 }
 
+interface MediaSeed {
+  id: number;
+  mediaType: "movie" | "tv";
+}
+
+type RecommendationFeedback =
+  | "good_pick"
+  | "bad_pick"
+  | "already_watched"
+  | "not_available";
+
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w780${path}`;
-const youtubeEmbedUrl = (key: string) =>
-  `https://www.youtube.com/embed/${key}?autoplay=1&mute=1&playsinline=1&controls=0&loop=1&playlist=${key}&rel=0&modestbranding=1`;
+const youtubeEmbedUrl = (key: string, muted: boolean) =>
+  `https://www.youtube.com/embed/${key}?autoplay=1&mute=${muted ? "1" : "0"}&playsinline=1&controls=0&loop=1&playlist=${key}&rel=0&modestbranding=1&enablejsapi=1`;
 
 function compactNumber(value: number) {
   return new Intl.NumberFormat("en", {
@@ -67,8 +84,12 @@ function readTastePayload(): FeedTastePayload {
     : {};
 
   const moviesById = new Map<number, Movie>();
+  const moviesByKey = new Map<string, Movie>();
   lists.forEach((list) => {
-    list.movies.forEach((movie) => moviesById.set(movie.id, movie));
+    list.movies.forEach((movie) => {
+      moviesById.set(movie.id, movie);
+      moviesByKey.set(movieKey(movie), movie);
+    });
   });
 
   const likedMovies = lists
@@ -95,15 +116,26 @@ function readTastePayload(): FeedTastePayload {
 
   const likedGenres = likedMovies.flatMap((movie) => movie.genres || []);
   const dislikedGenres = dislikedMovies.flatMap((movie) => movie.genres || []);
+  const toSeed = (movie: Movie): MediaSeed => ({
+    id: movie.id,
+    mediaType: movie.mediaType === "tv" ? "tv" : "movie",
+  });
 
   return {
     likedMovieIds: Array.from(likedMovieIds),
     dislikedMovieIds: Array.from(dislikedMovieIds),
     savedMovieIds: Array.from(savedMovieIds),
     watchedMovieIds: Array.from(watchedMovieIds),
+    likedSeeds: Array.from(
+      new Map(likedMovies.map((movie) => [movieKey(movie), toSeed(movie)])).values()
+    ),
+    savedSeeds: Array.from(
+      new Map(savedMovies.map((movie) => [movieKey(movie), toSeed(movie)])).values()
+    ),
     likedGenres: Array.from(new Set(likedGenres)),
     dislikedGenres: Array.from(new Set(dislikedGenres)),
     excludeMovieIds: Array.from(moviesById.keys()),
+    excludeKeys: Array.from(moviesByKey.keys()),
   };
 }
 
@@ -149,7 +181,10 @@ export function MovieFeed() {
       const cursor = append ? cursorRef.current : 0;
       const response = await fetch("/api/feed", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-flickbuddy-client-id": getClientId(),
+        },
         body: JSON.stringify({
           ...payload,
           cursor,
@@ -167,6 +202,12 @@ export function MovieFeed() {
         results: Movie[];
         nextCursor?: number;
       };
+      trackEvent(append ? "feed_more_loaded" : "feed_loaded", {
+        metadata: {
+          resultCount: data.results?.length || 0,
+          cursor,
+        },
+      });
       cursorRef.current =
         typeof data.nextCursor === "number" ? data.nextCursor : cursor + 1;
       setMovies((current) => {
@@ -209,7 +250,10 @@ export function MovieFeed() {
       try {
         const response = await fetch("/api/feed/ai-profile", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-flickbuddy-client-id": getClientId(),
+          },
           body: JSON.stringify({ force }),
         });
 
@@ -309,6 +353,16 @@ export function MovieFeed() {
       isDisliked: false,
     });
     MovieStorage.addToList(movie, "Liked");
+    sendFeedback({
+      movie,
+      feedback: "good_pick",
+      source: "feed_like",
+      metadata: { title: movie.title },
+    });
+    trackEvent("movie_liked", {
+      movie,
+      metadata: { source: "feed" },
+    });
     await persistInteraction(movie, "like");
     toast.success("Tuned your feed toward this.");
     void loadFeed(true);
@@ -316,12 +370,28 @@ export function MovieFeed() {
   };
 
   const handleDislike = async (movie: Movie) => {
-    if (!requireAuth()) return;
     MovieStorage.saveMovieState(movie.id, {
       isLiked: false,
       isDisliked: true,
     });
     MovieStorage.addToList(movie, "Not my taste");
+    sendFeedback({
+      movie,
+      feedback: "bad_pick",
+      source: "feed_pass",
+      metadata: { title: movie.title },
+    });
+    trackEvent("movie_disliked", {
+      movie,
+      metadata: { source: "feed" },
+    });
+
+    if (!isAuthed) {
+      toast.success("We will show less like this.");
+      void loadFeed(true);
+      return;
+    }
+
     await persistInteraction(movie, "dislike");
     toast.success("We will show less like this.");
     void loadFeed(true);
@@ -330,13 +400,17 @@ export function MovieFeed() {
 
   const handleSave = async (movie: Movie) => {
     if (!requireAuth()) return;
+    trackEvent("save_started", {
+      movie,
+      metadata: { source: "feed" },
+    });
     setListMovie(movie);
   };
 
   const handleShare = async (movie: Movie) => {
     if (!requireAuth()) return;
     const mediaType = movie.mediaType === "tv" ? "tv" : "movie";
-    const url = `${window.location.origin}/movie/${movie.id}?type=${mediaType}`;
+    const url = `${window.location.origin}/share/movie/${movie.id}?type=${mediaType}`;
     const text = `I found ${movie.title} on FlickBuddy.`;
 
     try {
@@ -346,11 +420,40 @@ export function MovieFeed() {
         url,
       });
       if (result === "copied") toast.success("Share link copied.");
+      trackEvent("movie_shared", {
+        movie,
+        metadata: { source: "feed", result },
+      });
       await persistInteraction(movie, "share");
     } catch (error) {
       console.error(error);
       toast.error("Could not share this movie.");
     }
+  };
+
+  const handleFeedback = async (
+    movie: Movie,
+    feedback: RecommendationFeedback
+  ) => {
+    sendFeedback({
+      movie,
+      feedback,
+      source: "feed_quick_feedback",
+      metadata: { title: movie.title },
+    });
+    trackEvent("recommendation_feedback", {
+      movie,
+      metadata: { source: "feed", feedback },
+    });
+
+    if (feedback === "already_watched") {
+      MovieStorage.saveMovieState(movie.id, { isSeen: true });
+      if (isAuthed) {
+        await persistInteraction(movie, "watch");
+      }
+    }
+
+    toast.success("Feedback saved.");
   };
 
   if (isLoading && movies.length === 0) {
@@ -391,6 +494,7 @@ export function MovieFeed() {
               onDislike={handleDislike}
               onSave={handleSave}
               onShare={handleShare}
+              onFeedback={handleFeedback}
               onShowReviews={(selectedMovie) =>
                 setSelectedReviews({
                   movie: selectedMovie,
@@ -421,6 +525,13 @@ export function MovieFeed() {
         }}
       />
 
+      <TasteOnboarding
+        onDone={() => {
+          void loadFeed(false);
+          void refreshAIProfile(true);
+        }}
+      />
+
       {listMovie && (
         <ListSelectionModal
           movie={listMovie}
@@ -431,6 +542,10 @@ export function MovieFeed() {
           onSaved={(list) => {
             MovieStorage.addToList(listMovie, list.name);
             void persistInteraction(listMovie, "save");
+            trackEvent("movie_saved", {
+              movie: listMovie,
+              metadata: { source: "feed", listId: list.id, listName: list.name },
+            });
             void loadFeed(true);
             void refreshAIProfile(true);
           }}
@@ -481,6 +596,7 @@ function MovieFeedItem({
   onDislike,
   onSave,
   onShare,
+  onFeedback,
   onShowReviews,
 }: {
   movie: Movie;
@@ -489,12 +605,21 @@ function MovieFeedItem({
   onDislike: (movie: Movie) => void;
   onSave: (movie: Movie) => void;
   onShare: (movie: Movie) => void;
+  onFeedback: (movie: Movie, feedback: RecommendationFeedback) => void;
   onShowReviews: (movie: Movie) => void;
 }) {
+  const [isMuted, setIsMuted] = useState(true);
+  const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
   const releaseYear = movie.release_date
     ? new Date(movie.release_date).getFullYear()
     : "Unknown";
   const state = MovieStorage.getMovieState(movie.id);
+  const hasLongOverview = movie.overview.length > 145;
+
+  useEffect(() => {
+    setIsMuted(true);
+    setIsOverviewExpanded(false);
+  }, [movie.id]);
 
   return (
     <article className="relative flex h-dvh snap-start snap-always flex-col justify-center overflow-hidden px-3 pb-24 pt-4">
@@ -512,9 +637,7 @@ function MovieFeedItem({
       <div className="relative z-10 flex h-full flex-col justify-between rounded-md border border-white/10 bg-[#070b0f]/72 p-3 shadow-2xl shadow-black/60 backdrop-blur-sm">
         <header className="flex items-start justify-between">
           <div>
-            <Link href="/" className="text-xl font-bold tracking-tight">
-              FlickBuddy
-            </Link>
+            <BrandLink className="text-xl" />
             <div className="mt-1 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-cyan-200/80">
               <span>For You</span>
               <span>{movie.relevanceScore}%</span>
@@ -532,7 +655,7 @@ function MovieFeedItem({
           {movie.trailerKey && isActive ? (
             <iframe
               title={`${movie.title} trailer`}
-              src={youtubeEmbedUrl(movie.trailerKey)}
+              src={youtubeEmbedUrl(movie.trailerKey, isMuted)}
               allow="autoplay; encrypted-media; picture-in-picture"
               allowFullScreen
               className="h-full w-full scale-125 border-0"
@@ -552,6 +675,26 @@ function MovieFeedItem({
             <Play className="h-4 w-4" />
             <span>{movie.trailerKey ? "Trailer" : "Poster"}</span>
           </div>
+          {movie.trailerKey && isActive && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsMuted((current) => !current);
+                trackEvent(isMuted ? "trailer_unmuted" : "trailer_muted", {
+                  movie,
+                  metadata: { source: "feed" },
+                });
+              }}
+              className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-black/65 px-3 py-2 text-xs font-bold text-white backdrop-blur transition hover:bg-black/80"
+            >
+              {isMuted ? (
+                <VolumeX className="h-4 w-4" />
+              ) : (
+                <Volume2 className="h-4 w-4" />
+              )}
+              {isMuted ? "Unmute" : "Mute"}
+            </button>
+          )}
         </div>
 
         <section>
@@ -565,8 +708,12 @@ function MovieFeedItem({
             </span>
             {movie.trailerKey && (
               <span className="flex items-center gap-1 text-sm text-white/60">
-                <VolumeX className="h-4 w-4" />
-                muted
+                {isMuted ? (
+                  <VolumeX className="h-4 w-4" />
+                ) : (
+                  <Volume2 className="h-4 w-4" />
+                )}
+                {isMuted ? "muted" : "sound on"}
               </span>
             )}
           </div>
@@ -575,12 +722,52 @@ function MovieFeedItem({
           <p className="mt-2 text-sm text-cyan-100/75">
             {movie.genres.slice(0, 3).join(" / ")}
           </p>
-          <p className="mt-3 line-clamp-3 text-sm leading-5 text-white/82">
-            {movie.overview}
-          </p>
+          <div className="mt-3 text-sm leading-5 text-white/82">
+            <p className={isOverviewExpanded ? "" : "line-clamp-3"}>
+              {movie.overview}
+            </p>
+            {hasLongOverview && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOverviewExpanded((current) => !current);
+                  trackEvent(
+                    isOverviewExpanded
+                      ? "overview_collapsed"
+                      : "overview_expanded",
+                    {
+                      movie,
+                      metadata: { source: "feed" },
+                    }
+                  );
+                }}
+                className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-cyan-200"
+              >
+                {isOverviewExpanded ? "See less" : "See more"}
+              </button>
+            )}
+          </div>
           <p className="mt-3 rounded-sm border-l-2 border-cyan-300 bg-cyan-300/10 px-3 py-2 text-sm font-medium text-white">
             {movie.feedReason}
           </p>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {[
+              ["good_pick", "Good pick"],
+              ["already_watched", "Seen"],
+              ["not_available", "Unavailable"],
+            ].map(([feedback, label]) => (
+              <button
+                key={feedback}
+                type="button"
+                onClick={() =>
+                  onFeedback(movie, feedback as RecommendationFeedback)
+                }
+                className="shrink-0 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-white/68 transition hover:border-cyan-300/40 hover:text-white"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </section>
 
         <aside className="mt-4 grid grid-cols-4 gap-2">
