@@ -306,7 +306,7 @@ export function ListDetailView({ listId }: { listId: string }) {
                     onChange={(event) => setDraftDescription(event.target.value)}
                     placeholder="Description (optional)"
                     rows={3}
-                    className="w-full resize-none rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm leading-6 outline-none placeholder:text-white/35 focus:border-cyan-300/60"
+                    className="w-full resize-none rounded-md border border-white/10 bg-black/20 px-3 py-2 text-base leading-6 outline-none placeholder:text-white/35 focus:border-cyan-300/60 md:text-sm"
                   />
                   <div className="flex flex-wrap gap-2 text-xs text-white/45">
                     <span>Created {formatDate(list.createdAt)}</span>

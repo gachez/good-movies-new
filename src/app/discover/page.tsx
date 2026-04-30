@@ -418,7 +418,7 @@ function BottomComposer({
               onKeyDown={handleKeyDown}
               placeholder="Refine these results..."
               rows={1}
-              className="max-h-28 min-h-7 flex-1 resize-none bg-transparent text-sm font-semibold leading-7 text-white outline-none placeholder:text-white/38"
+              className="max-h-28 min-h-7 flex-1 resize-none bg-transparent text-base font-semibold leading-7 text-white outline-none placeholder:text-white/38 md:text-sm"
             />
           </label>
 

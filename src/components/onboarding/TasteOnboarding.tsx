@@ -234,7 +234,7 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search a title, actor, mood, or franchise"
-              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/35"
+              className="min-w-0 flex-1 bg-transparent text-base font-semibold text-white outline-none placeholder:text-white/35 md:text-sm"
             />
             {isSearching && (
               <Loader2 className="h-4 w-4 animate-spin text-cyan-200" />
