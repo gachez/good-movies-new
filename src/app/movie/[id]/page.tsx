@@ -7,7 +7,7 @@ import { Bookmark, Heart, MessageCircle, Send, Star } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { AuthNudge } from "@/components/auth/AuthNudge";
 import { BackButton } from "@/components/BackButton";
-import { FlickBuddyLoader } from "@/components/FlickBuddyLoader";
+import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { ListSelectionModal } from "@/components/ListSelectionModal";
 import { authClient } from "@/lib/auth-client";
 import { Movie } from "@/types/movie";

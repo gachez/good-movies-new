@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThumbsUp, ThumbsDown, List, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { FlickBuddyLoader } from '@/components/FlickBuddyLoader';
+import { FlickBuddyLoader } from '@/components/FilmRabbitLoader';
 
 const movieQuotes = [
   "Here's looking at you, kid. - Casablanca",

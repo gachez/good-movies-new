@@ -7,7 +7,6 @@ import {
   Bookmark,
   Clapperboard,
   Grid3X3,
-  Heart,
   List,
   Lock,
   Star,
