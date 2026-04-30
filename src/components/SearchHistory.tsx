@@ -99,7 +99,7 @@ export const SearchHistory = () => {
                 <div className="bg-violet-50 p-4 rounded-lg">
                   <p className="text-sm text-violet-700 flex items-center gap-2">
                     <Search className="w-4 h-4" />
-                    Try searching for "Movies like Inception"
+                    Try searching for &quot;Movies like Inception&quot;
                   </p>
                 </div>
               </motion.div>

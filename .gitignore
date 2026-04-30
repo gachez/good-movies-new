@@ -1,2 +1,9 @@
 node_modules
 .next
+.env
+.env.local
+.env.*.local
+tsconfig.tsbuildinfo
+data/*.sqlite
+data/*.sqlite-*
+*.db

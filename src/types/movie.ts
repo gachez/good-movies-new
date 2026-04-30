@@ -16,8 +16,24 @@ export interface Movie {
   genres: string[];
   relevanceScore: number;
   matchReason?: string;
+  matchCaveat?: string;
   highlightedThemes?: string[];
   hasContentAnalysis?: boolean;
+  mediaType?: "movie" | "tv";
+  trailerKey?: string;
+  trailerName?: string;
+  reviews?: MovieReview[];
+  feedReason?: string;
+}
+
+export interface MovieReview {
+  id: string;
+  author: string;
+  avatarPath?: string | null;
+  rating?: number | null;
+  content: string;
+  createdAt: string;
+  url?: string;
 }
 
 export interface MovieState {

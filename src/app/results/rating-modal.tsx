@@ -4,17 +4,7 @@ import { useState } from "react"
 import { X } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-
-interface Movie {
-  id: number
-  title: string
-  year: number
-  rating: number
-  runtime: string
-  genres: string[]
-  description: string
-  poster: string
-}
+import { Movie } from "@/types/movie"
 
 interface RatingModalProps {
   movie: Movie
@@ -32,18 +22,17 @@ export default function RatingModal({ movie, open, onOpenChange, onRate }: Ratin
     // Call the onRate callback with the selected rating
     onRate(selectedRating);
     
-    // Log the rating action
-    console.log(`Rated ${movie.title} with ${selectedRating} stars`);
-    
     // Close the modal
     onOpenChange(false);
   }
 
   return (
-    <Dialog open={true} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-center text-xl">How was "{movie.title}"?</DialogTitle>
+          <DialogTitle className="text-center text-xl">
+            How was &quot;{movie.title}&quot;?
+          </DialogTitle>
           <button
             className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
             onClick={() => onOpenChange(false)}
@@ -88,4 +77,3 @@ export default function RatingModal({ movie, open, onOpenChange, onRate }: Ratin
     </Dialog>
   )
 }
-

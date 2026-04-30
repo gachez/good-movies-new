@@ -1,6 +1,6 @@
 'use client';
 
-import { Film, List, User, Rabbit } from 'lucide-react';
+import { Film, Search, User, Rabbit } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
@@ -15,12 +15,12 @@ export const Navbar = () => {
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
             <Rabbit className="h-8 w-8 text-white" />
-            <span className="text-2xl font-bold text-white hidden lg:block">FilmRabbit AI</span>
+            <span className="text-2xl font-bold text-white hidden lg:block">FlickBuddy AI</span>
           </Link>
           
           <div className="flex items-center space-x-6">
             <Link 
-              href="/explore" 
+              href="/discover" 
               className="flex items-center space-x-1 text-white/90 hover:text-white transition-colors"
             >
               <Film className="h-5 w-5" />
@@ -28,11 +28,11 @@ export const Navbar = () => {
             </Link>
             
             <Link 
-              href="/lists" 
+              href="/search" 
               className="flex items-center space-x-1 text-white/90 hover:text-white transition-colors"
             >
-              <List className="h-5 w-5" />
-              <span>Lists</span>
+              <Search className="h-5 w-5" />
+              <span>Search</span>
             </Link>
             
             <Link 

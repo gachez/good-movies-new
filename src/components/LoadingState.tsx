@@ -1,8 +1,9 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Rabbit, ThumbsUp, ThumbsDown, List, Sparkles } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, List, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { FlickBuddyLoader } from '@/components/FlickBuddyLoader';
 
 const movieQuotes = [
   "Here's looking at you, kid. - Casablanca",
@@ -28,7 +29,7 @@ const aiTips = [
   },
   {
     icon: List,
-    text: "Create lists to group your favorite films this wll help me understand your taste"
+    text: "Create lists to group your favorite films so I can understand your taste"
   },
   {
     icon: Sparkles,
@@ -89,41 +90,17 @@ export const LoadingState = ({ isLoading }: LoadingStateProps) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-violet-50/80 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#05080b]/92 text-white backdrop-blur-md"
         >
-          <div className="max-w-3xl mx-auto px-6 text-center">
-            <motion.div
-              animate={{
-                rotate: [0, 360],
-                scale: [1, 1.1, 1],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              className="inline-block mb-8 text-violet-600"
-            >
-              <Rabbit className="w-16 h-16" />
-            </motion.div>
+          <div className="mx-auto max-w-3xl px-6 text-center">
+            <FlickBuddyLoader
+              size="lg"
+              title="FlickBuddy is searching..."
+              message="The more you interact, the better the rabbit gets at finding your perfect movies."
+              className="mb-8"
+            />
 
-            <motion.h2
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-2xl md:text-3xl font-bold text-violet-900 mb-4"
-            >
-              Please wait while I search...
-            </motion.h2>
-
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-lg text-violet-700 mb-8"
-            >
-              The more you interact, the better I become at finding your perfect movies
-            </motion.p>
-
-            <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className="mb-8 grid gap-3 sm:grid-cols-2 sm:gap-4">
               {aiTips.map((tip, index) => (
                 <motion.div
                   key={index}
@@ -133,10 +110,10 @@ export const LoadingState = ({ isLoading }: LoadingStateProps) => {
                     y: 0,
                     scale: currentTip === index ? 1.05 : 1
                   }}
-                  className="bg-white p-4 rounded-xl shadow-md flex items-center gap-3"
+                  className="flex items-center gap-3 rounded-md border border-white/10 bg-white/[0.06] p-4 shadow-2xl shadow-black/30"
                 >
-                  <tip.icon className="w-6 h-6 text-violet-600" />
-                  <p className="text-left text-violet-800 font-medium">{tip.text}</p>
+                  <tip.icon className="h-6 w-6 shrink-0 text-cyan-300" />
+                  <p className="text-left font-medium text-cyan-50/80">{tip.text}</p>
                 </motion.div>
               ))}
             </div>
@@ -145,14 +122,15 @@ export const LoadingState = ({ isLoading }: LoadingStateProps) => {
               animate={{
                 opacity: isTyping ? 1 : 0.7,
               }}
-              className="bg-white p-6 rounded-xl shadow-xl max-w-lg mx-auto"
+              className="mx-auto max-w-lg rounded-md border border-cyan-300/20 bg-cyan-300/10 p-6 shadow-2xl shadow-black/30"
             >
-              <p className="text-lg text-violet-800 font-medium">
+              <p className="text-lg font-medium text-cyan-50">
                 {displayedText}
                 {isTyping && (
                   <motion.span
                     animate={{ opacity: [1, 0] }}
                     transition={{ duration: 0.5, repeat: Infinity }}
+                    className="text-cyan-300"
                   >
                     |
                   </motion.span>
@@ -173,7 +151,7 @@ export const LoadingState = ({ isLoading }: LoadingStateProps) => {
                     repeat: Infinity,
                     delay: i * 0.2,
                   }}
-                  className="w-3 h-3 rounded-full bg-violet-600"
+                  className="h-3 w-3 rounded-full bg-cyan-300"
                 />
               ))}
             </div>
