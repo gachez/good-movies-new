@@ -44,9 +44,6 @@ const refinePrompts = [
 
 const modes = [
   { label: "Smart", value: "smart" },
-  { label: "Mood", value: "mood" },
-  { label: "Genre", value: "genre" },
-  { label: "Series", value: "series" },
 ] as const;
 
 type DiscoverMode = (typeof modes)[number]["value"];

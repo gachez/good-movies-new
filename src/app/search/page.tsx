@@ -7,6 +7,7 @@ import { Search, SlidersHorizontal, Star } from "lucide-react";
 import { AppNav } from "@/components/AppNav";
 import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { Movie } from "@/types/movie";
+import { BrandLink } from "@/components/BrandLogo";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w500${path}`;
 
@@ -85,6 +86,10 @@ export default function SearchPage() {
   return (
     <main className="min-h-dvh bg-[#05080b] pb-24 text-white">
       <section className="sticky top-0 z-30 border-b border-white/5 bg-[#05080b]/95 px-4 pb-4 pt-5 backdrop-blur-xl">
+                <header className="flex items-center justify-between mb-4">
+                  <BrandLink className="text-xl" />
+              
+                </header>
         <div className="mx-auto max-w-5xl">
           <div className="flex items-center gap-3">
             <label className="flex h-14 flex-1 items-center gap-3 rounded-md bg-white/[0.08] px-4">
