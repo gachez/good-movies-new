@@ -369,7 +369,7 @@ export function ListManager() {
                   onChange={(event) => setNewListDescription(event.target.value)}
                   placeholder="Description (optional)"
                   rows={3}
-                  className="w-full resize-none rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none placeholder:text-white/35 focus:border-cyan-300/60"
+                  className="w-full resize-none rounded-md border border-white/10 bg-black/20 px-3 py-2 text-base outline-none placeholder:text-white/35 focus:border-cyan-300/60 md:text-sm"
                 />
                 <Button
                   onClick={createList}
@@ -440,7 +440,7 @@ export function ListManager() {
                       onChange={(event) => setDraftDescription(event.target.value)}
                       placeholder="Description (optional)"
                       rows={3}
-                      className="w-full resize-none rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm leading-6 outline-none placeholder:text-white/35 focus:border-cyan-300/60"
+                      className="w-full resize-none rounded-md border border-white/10 bg-black/20 px-3 py-2 text-base leading-6 outline-none placeholder:text-white/35 focus:border-cyan-300/60 md:text-sm"
                     />
                     <div className="flex flex-wrap gap-2 text-xs text-white/45">
                       <span>Created {formatDate(selectedList.createdAt)}</span>

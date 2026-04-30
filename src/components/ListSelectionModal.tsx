@@ -226,7 +226,7 @@ export function ListSelectionModal({
                 onChange={(event) => setNewListDescription(event.target.value)}
                 placeholder="Description (optional)"
                 rows={2}
-                className="w-full resize-none rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-cyan-300/60"
+                className="w-full resize-none rounded-md border border-white/10 bg-black/20 px-3 py-2 text-base text-white outline-none placeholder:text-white/35 focus:border-cyan-300/60 md:text-sm"
               />
             </div>
           </div>

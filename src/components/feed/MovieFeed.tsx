@@ -622,7 +622,7 @@ function MovieFeedItem({
   }, [movie.id]);
 
   return (
-    <article className="relative flex h-dvh snap-start snap-always flex-col justify-center overflow-hidden px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-4">
+    <article className="relative flex h-dvh snap-start snap-always flex-col justify-center overflow-hidden px-0 pb-0 pt-0 sm:px-4 sm:pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:pt-[calc(0.75rem+env(safe-area-inset-top))]">
       <div className="absolute inset-0 opacity-45 blur-3xl">
         <Image
           src={posterUrl(movie.poster_path)}
@@ -634,10 +634,10 @@ function MovieFeedItem({
         <div className="absolute inset-0 bg-black/70" />
       </div>
 
-      <div className="relative z-10 mx-auto flex h-full max-h-[720px] min-h-0 w-full max-w-[430px] flex-col overflow-hidden rounded-md border border-white/10 bg-[#070b0f]/72 p-3 shadow-2xl shadow-black/60 backdrop-blur-sm lg:max-h-none lg:max-w-none">
-        <header className="flex shrink-0 items-start justify-between gap-3">
+      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden bg-black shadow-2xl shadow-black/60 sm:max-h-[720px] sm:max-w-[430px] sm:rounded-md sm:border sm:border-white/10 sm:bg-[#070b0f]/72 sm:p-3 sm:backdrop-blur-sm lg:max-h-none lg:max-w-none">
+        <header className="absolute inset-x-0 top-0 z-30 flex shrink-0 items-start justify-between gap-3 px-4 pt-[calc(0.85rem+env(safe-area-inset-top))] sm:relative sm:inset-auto sm:px-0 sm:pt-0">
           <div>
-            <BrandLink className="text-xl" />
+            <BrandLink className="text-xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]" />
             <div className="mt-1 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-cyan-200/80">
               <span>For You</span>
               <span>{movie.relevanceScore}%</span>
@@ -645,21 +645,32 @@ function MovieFeedItem({
           </div>
           <button
             onClick={() => onDislike(movie)}
-            className="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold backdrop-blur transition hover:border-red-300/60"
+            className="rounded-full border border-white/20 bg-black/35 px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur transition hover:border-red-300/60 sm:bg-white/5"
           >
             Pass
           </button>
         </header>
 
-        <div className="relative my-2 h-[clamp(150px,48vw,230px)] shrink-0 overflow-hidden rounded-sm border border-white/10 bg-black sm:my-3 sm:h-[260px] lg:h-[300px]">
+        <div className="absolute inset-0 my-0 h-auto shrink-0 overflow-hidden rounded-none border-0 bg-black sm:relative sm:inset-auto sm:my-3 sm:h-[260px] sm:rounded-sm sm:border sm:border-white/10 lg:h-[300px]">
           {movie.trailerKey && isActive ? (
-            <iframe
-              title={`${movie.title} trailer`}
-              src={youtubeEmbedUrl(movie.trailerKey, isMuted)}
-              allow="autoplay; encrypted-media; picture-in-picture"
-              allowFullScreen
-              className="h-full w-full scale-125 border-0"
-            />
+            <>
+              <Image
+                src={posterUrl(movie.poster_path)}
+                alt=""
+                fill
+                priority={isActive}
+                sizes="100vw"
+                className="scale-110 object-cover opacity-60 blur-sm sm:hidden"
+              />
+              <div className="absolute inset-0 bg-black/35 sm:hidden" />
+              <iframe
+                title={`${movie.title} trailer`}
+                src={youtubeEmbedUrl(movie.trailerKey, isMuted)}
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+                className="pointer-events-none absolute left-1/2 top-[42%] aspect-video w-[min(112vw,480px)] -translate-x-1/2 -translate-y-1/2 border-0 shadow-2xl shadow-black/70 sm:static sm:h-full sm:w-full sm:translate-x-0 sm:translate-y-0 sm:scale-125 sm:shadow-none"
+              />
+            </>
           ) : (
             <Image
               src={posterUrl(movie.poster_path)}
@@ -670,8 +681,9 @@ function MovieFeedItem({
               className="object-cover"
             />
           )}
-          <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black/90 to-transparent" />
-          <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-black/55 px-3 py-1 text-xs backdrop-blur">
+          <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/70 to-transparent sm:hidden" />
+          <div className="absolute inset-x-0 bottom-0 h-[48dvh] bg-gradient-to-t from-black via-black/68 to-transparent sm:h-36 sm:from-black/90 sm:via-transparent" />
+          <div className="absolute left-3 top-3 hidden items-center gap-2 rounded-full bg-black/55 px-3 py-1 text-xs backdrop-blur sm:flex">
             <Play className="h-4 w-4" />
             <span>{movie.trailerKey ? "Trailer" : "Poster"}</span>
           </div>
@@ -685,7 +697,7 @@ function MovieFeedItem({
                   metadata: { source: "feed" },
                 });
               }}
-              className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-black/65 px-3 py-2 text-xs font-bold text-white backdrop-blur transition hover:bg-black/80"
+              className="absolute left-4 top-[calc(5rem+env(safe-area-inset-top))] flex items-center gap-2 rounded-full bg-black/65 px-3 py-2 text-xs font-bold text-white shadow-lg backdrop-blur transition hover:bg-black/80 sm:left-auto sm:right-3 sm:top-3"
             >
               {isMuted ? (
                 <VolumeX className="h-4 w-4" />
@@ -697,7 +709,7 @@ function MovieFeedItem({
           )}
         </div>
 
-        <section className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <section className="absolute inset-x-0 bottom-[calc(5.4rem+env(safe-area-inset-bottom))] z-20 max-h-[42dvh] overflow-y-auto overscroll-contain px-4 pr-24 [scrollbar-width:none] [text-shadow:0_2px_8px_rgba(0,0,0,0.85)] sm:relative sm:inset-auto sm:min-h-0 sm:flex-1 sm:px-0 sm:pr-1 sm:[text-shadow:none] [&::-webkit-scrollbar]:hidden">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-cyan-300 px-2.5 py-1 text-xs font-bold text-black">
               {releaseYear}
@@ -718,7 +730,7 @@ function MovieFeedItem({
             )}
           </div>
 
-          <h1 className="text-[clamp(1.55rem,6vw,1.95rem)] font-bold leading-[1.08]">
+          <h1 className="text-[clamp(1.65rem,7vw,2.1rem)] font-bold leading-[1.05] sm:text-[clamp(1.55rem,6vw,1.95rem)] sm:leading-[1.08]">
             {movie.title}
           </h1>
           <p className="mt-1 line-clamp-1 text-sm text-cyan-100/75 sm:mt-2">
@@ -749,10 +761,10 @@ function MovieFeedItem({
               </button>
             )}
           </div>
-          <p className="mt-2 line-clamp-2 rounded-sm border-l-2 border-cyan-300 bg-cyan-300/10 px-3 py-2 text-sm font-medium leading-5 text-white sm:mt-3">
+          <p className="mt-2 line-clamp-2 rounded-sm border-l-2 border-cyan-300 bg-black/28 px-3 py-2 text-sm font-medium leading-5 text-white backdrop-blur-sm sm:mt-3 sm:bg-cyan-300/10 sm:backdrop-blur-none">
             {movie.feedReason}
           </p>
-          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 sm:mt-3">
+          <div className="mt-2 hidden gap-2 overflow-x-auto pb-1 sm:mt-3 sm:flex">
             {[
               ["good_pick", "Good pick"],
               ["already_watched", "Seen"],
@@ -772,7 +784,7 @@ function MovieFeedItem({
           </div>
         </section>
 
-        <aside className="mt-3 grid shrink-0 grid-cols-4 gap-2 sm:mt-4">
+        <aside className="absolute right-3 bottom-[calc(7.2rem+env(safe-area-inset-bottom))] z-30 flex shrink-0 flex-col gap-3 sm:static sm:right-auto sm:bottom-auto sm:z-auto sm:mt-4 sm:grid sm:grid-cols-4 sm:gap-2">
           <FeedAction
             active={state.isLiked}
             icon={<Heart className="h-5 w-5" fill={state.isLiked ? "currentColor" : "none"} />}
@@ -820,14 +832,20 @@ function FeedAction({
   return (
     <button
       onClick={onClick}
-      className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-sm border px-1 text-white transition ${
+      className={`flex min-h-14 min-w-12 flex-col items-center justify-center gap-1 px-1 text-center text-white transition sm:rounded-sm sm:border ${
         active
-          ? "border-cyan-300 bg-cyan-300/15 text-cyan-200"
-          : "border-white/10 bg-white/[0.04] hover:border-white/30"
+          ? "text-cyan-200 sm:border-cyan-300 sm:bg-cyan-300/15"
+          : "hover:text-cyan-200 sm:border-white/10 sm:bg-white/[0.04] sm:hover:border-white/30"
       }`}
     >
-      {icon}
-      <span className="max-w-full truncate text-[10px] font-semibold uppercase tracking-[0.08em]">
+      <span
+        className={`flex h-11 w-11 items-center justify-center rounded-full shadow-lg backdrop-blur sm:h-auto sm:w-auto sm:bg-transparent sm:shadow-none sm:backdrop-blur-none ${
+          active ? "bg-cyan-300/20" : "bg-black/38"
+        }`}
+      >
+        {icon}
+      </span>
+      <span className="max-w-[3.5rem] truncate text-[10px] font-semibold uppercase tracking-[0.04em] drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] sm:max-w-full sm:tracking-[0.08em] sm:drop-shadow-none">
         {label}
       </span>
     </button>
