@@ -622,7 +622,7 @@ function MovieFeedItem({
   }, [movie.id]);
 
   return (
-    <article className="relative flex h-dvh snap-start snap-always flex-col justify-center overflow-hidden px-3 pb-24 pt-4">
+    <article className="relative flex h-dvh snap-start snap-always flex-col justify-center overflow-hidden px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-4">
       <div className="absolute inset-0 opacity-45 blur-3xl">
         <Image
           src={posterUrl(movie.poster_path)}
@@ -634,8 +634,8 @@ function MovieFeedItem({
         <div className="absolute inset-0 bg-black/70" />
       </div>
 
-      <div className="relative z-10 flex h-full flex-col justify-between rounded-md border border-white/10 bg-[#070b0f]/72 p-3 shadow-2xl shadow-black/60 backdrop-blur-sm">
-        <header className="flex items-start justify-between">
+      <div className="relative z-10 mx-auto flex h-full max-h-[720px] min-h-0 w-full max-w-[430px] flex-col overflow-hidden rounded-md border border-white/10 bg-[#070b0f]/72 p-3 shadow-2xl shadow-black/60 backdrop-blur-sm lg:max-h-none lg:max-w-none">
+        <header className="flex shrink-0 items-start justify-between gap-3">
           <div>
             <BrandLink className="text-xl" />
             <div className="mt-1 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-cyan-200/80">
@@ -651,7 +651,7 @@ function MovieFeedItem({
           </button>
         </header>
 
-        <div className="relative my-3 min-h-0 flex-1 overflow-hidden rounded-sm border border-white/10 bg-black">
+        <div className="relative my-2 h-[clamp(150px,48vw,230px)] shrink-0 overflow-hidden rounded-sm border border-white/10 bg-black sm:my-3 sm:h-[260px] lg:h-[300px]">
           {movie.trailerKey && isActive ? (
             <iframe
               title={`${movie.title} trailer`}
@@ -697,7 +697,7 @@ function MovieFeedItem({
           )}
         </div>
 
-        <section>
+        <section className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-cyan-300 px-2.5 py-1 text-xs font-bold text-black">
               {releaseYear}
@@ -718,12 +718,14 @@ function MovieFeedItem({
             )}
           </div>
 
-          <h1 className="text-3xl font-bold leading-tight">{movie.title}</h1>
-          <p className="mt-2 text-sm text-cyan-100/75">
+          <h1 className="text-[clamp(1.55rem,6vw,1.95rem)] font-bold leading-[1.08]">
+            {movie.title}
+          </h1>
+          <p className="mt-1 line-clamp-1 text-sm text-cyan-100/75 sm:mt-2">
             {movie.genres.slice(0, 3).join(" / ")}
           </p>
-          <div className="mt-3 text-sm leading-5 text-white/82">
-            <p className={isOverviewExpanded ? "" : "line-clamp-3"}>
+          <div className="mt-2 text-sm leading-5 text-white/82 sm:mt-3">
+            <p className={isOverviewExpanded ? "" : "line-clamp-2 sm:line-clamp-3"}>
               {movie.overview}
             </p>
             {hasLongOverview && (
@@ -747,10 +749,10 @@ function MovieFeedItem({
               </button>
             )}
           </div>
-          <p className="mt-3 rounded-sm border-l-2 border-cyan-300 bg-cyan-300/10 px-3 py-2 text-sm font-medium text-white">
+          <p className="mt-2 line-clamp-2 rounded-sm border-l-2 border-cyan-300 bg-cyan-300/10 px-3 py-2 text-sm font-medium leading-5 text-white sm:mt-3">
             {movie.feedReason}
           </p>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 sm:mt-3">
             {[
               ["good_pick", "Good pick"],
               ["already_watched", "Seen"],
@@ -770,7 +772,7 @@ function MovieFeedItem({
           </div>
         </section>
 
-        <aside className="mt-4 grid grid-cols-4 gap-2">
+        <aside className="mt-3 grid shrink-0 grid-cols-4 gap-2 sm:mt-4">
           <FeedAction
             active={state.isLiked}
             icon={<Heart className="h-5 w-5" fill={state.isLiked ? "currentColor" : "none"} />}

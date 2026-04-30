@@ -207,21 +207,14 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 p-0 text-white backdrop-blur-sm sm:items-center sm:p-5">
-      <section className="flex max-h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-lg border border-white/10 bg-[#071118] shadow-2xl shadow-black/60 sm:rounded-lg">
-        <header className="flex items-start gap-4 border-b border-white/8 p-4 sm:p-5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-cyan-300 text-black">
-            <Sparkles className="h-5 w-5" />
-          </div>
+      <section className="flex h-dvh max-h-dvh w-full max-w-4xl flex-col overflow-hidden bg-[#071118] shadow-2xl shadow-black/60 sm:h-auto sm:max-h-[94dvh] sm:rounded-lg sm:border sm:border-white/10">
+        <header className="flex shrink-0 items-start gap-3 border-b border-white/8 p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:gap-4 sm:p-5">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">
-              Start your taste profile
-            </p>
-            <h2 className="mt-1 text-2xl font-black leading-tight">
+            <h2 className="mt-1 text-[clamp(1.35rem,6vw,1.75rem)] font-black leading-tight sm:text-2xl">
               Pick movies and series you already like.
             </h2>
-            <p className="mt-2 text-sm leading-6 text-white/58">
-              Choose at least {MIN_SELECTIONS}, or keep adding as many as you
-              want. Better inputs make the first feed sharper.
+            <p className="mt-1 line-clamp-2 text-sm leading-5 text-white/58 sm:mt-2 sm:leading-6">
+              Choose at least {MIN_SELECTIONS}, to make the recommendations sharper.
             </p>
           </div>
           <button
@@ -234,8 +227,8 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
           </button>
         </header>
 
-        <div className="border-b border-white/8 px-4 py-3 sm:px-5">
-          <label className="mb-3 flex h-12 items-center gap-3 rounded-md border border-white/10 bg-black/24 px-3 focus-within:border-cyan-300/60">
+        <div className="shrink-0 border-b border-white/8 px-3 py-2 sm:px-5 sm:py-3">
+          <label className="mb-2 flex h-11 items-center gap-3 rounded-md border border-white/10 bg-black/24 px-3 focus-within:border-cyan-300/60 sm:mb-3 sm:h-12">
             <Search className="h-5 w-5 shrink-0 text-white/42" />
             <input
               value={query}
@@ -274,7 +267,7 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
             </p>
           </div>
 
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 sm:mt-3">
             <button
               type="button"
               onClick={() => setGenre("")}
@@ -304,7 +297,7 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
         </div>
 
         {selectedMovies.length > 0 && (
-          <div className="border-b border-white/8 bg-cyan-300/[0.04] px-4 py-3 sm:px-5">
+          <div className="shrink-0 border-b border-white/8 bg-cyan-300/[0.04] px-3 py-2 sm:px-5 sm:py-3">
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">
                 Your picks
@@ -353,7 +346,7 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
           </div>
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-28 sm:p-5 sm:pb-24">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
           {isLoading || isSearching ? (
             <div className="flex min-h-80 items-center justify-center">
               <div className="flex items-center gap-3 text-sm font-bold text-white/65">
@@ -414,15 +407,15 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
           )}
         </div>
 
-        <footer className="sticky bottom-0 z-10 flex flex-col gap-3 border-t border-white/8 bg-[#071118]/96 p-4 shadow-2xl shadow-black/50 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <footer className="z-10 grid shrink-0 grid-cols-2 gap-2 border-t border-white/8 bg-[#071118]/96 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-2xl shadow-black/50 backdrop-blur-xl sm:flex sm:items-center sm:justify-between sm:p-5">
           <button
             type="button"
             onClick={skip}
             className="order-2 rounded-md border border-white/10 px-4 py-3 text-sm font-bold text-white/62 transition hover:text-white sm:order-1"
           >
-            Skip for now
+            Skip
           </button>
-          <div className="order-1 text-center text-xs font-bold text-white/55 sm:order-2">
+          <div className="order-1 col-span-2 text-center text-xs font-bold text-white/55 sm:order-2 sm:col-auto">
             {remainingCount > 0
               ? `Pick ${remainingCount} more to tune your feed`
               : `${selectedMovies.length} picks ready`}
@@ -431,7 +424,7 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
             type="button"
             onClick={complete}
             disabled={selectedMovies.length < MIN_SELECTIONS || isSaving}
-            className="order-3 flex min-h-12 items-center justify-center gap-2 rounded-md bg-cyan-300 px-5 py-3 text-sm font-black text-black transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-48"
+            className="order-3 flex min-h-12 items-center justify-center gap-2 rounded-md bg-cyan-300 px-4 py-3 text-sm font-black text-black transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-48 sm:px-5"
           >
             {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
             Personalize feed

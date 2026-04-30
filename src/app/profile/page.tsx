@@ -170,17 +170,7 @@ export default function ProfilePage() {
 
           <div className="flex flex-1 items-center">
             <section className="w-full rounded-md border border-cyan-300/18 bg-white/[0.04] p-6 shadow-2xl shadow-black/30 sm:p-8">
-              <p className="mt-6 text-xs font-bold uppercase tracking-[0.2em] text-cyan-200">
-                Personalization needs an account
-              </p>
-              <h1 className="mt-3 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-                Create an account to build your taste profile and get personalized recommendations
-              </h1>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-white/68">
-                FlickBuddy uses your likes, passes, saves, watched titles, and
-                feedback to build the best recommendations for you.
-              </p>
-
+            
               <div className="mt-7 grid gap-3 sm:grid-cols-3">
                 <ProfileBenefit title="Save taste" text="Keep likes, passes, and saves." />
                 <ProfileBenefit title="Tune picks" text="Improve your feed over time." />
