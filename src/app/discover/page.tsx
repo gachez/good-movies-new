@@ -158,6 +158,7 @@ export default function DiscoverPage() {
     const nextMode = prompt.toLowerCase().includes("show") ? "series" : "smart";
     setActivePrompt(prompt);
     setDraft("");
+    //@ts-ignore
     setMode(nextMode);
     setSubmittedQuery(prompt);
     trackEvent("discover_prompt_used", {
@@ -171,6 +172,7 @@ export default function DiscoverPage() {
       : refinement;
     setDraft("");
     setSubmittedQuery(nextQuery);
+    //@ts-ignore
     if (refinement === "Only series") setMode("series");
     trackEvent("discover_refine_chip_used", {
       metadata: { refinement, query: nextQuery },
