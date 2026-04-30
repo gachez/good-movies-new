@@ -1,15 +1,14 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/db";
+import { getAppBaseUrl, getAuthSecret } from "@/lib/env";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
-  secret:
-    process.env.BETTER_AUTH_SECRET ||
-    "development-only-better-auth-secret-change-before-production",
+  baseURL: getAppBaseUrl(),
+  secret: getAuthSecret(),
   database: db,
   emailAndPassword: {
     enabled: true,

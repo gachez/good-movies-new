@@ -1,24 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRequestSession } from "@/lib/api-session";
+import { betaLimitHeaders, consumeBetaLimit } from "@/lib/beta-limits";
 import { generateChatCompletionWithModel } from "@/lib/ai";
 import { searchMultiple, TMDBMovie } from "@/lib/tmdb";
-import { getHistory, addToHistory, resetHistory } from "@/lib/session";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 const MODEL = "gpt-4.1";
 
 // --- PROMPT BUILDERS ---
 
-function buildIntentPrompt(
-  history: { role: string; content: string }[],
-  query: string
-): string {
-  const historyText =
-    history.length > 0
-      ? `Previous conversation:\n${history.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n")}\n\n`
-      : "";
-
+function buildIntentPrompt(query: string): string {
   return `You are FlickBuddy, an expert movie recommendation AI. Your job is to understand what movies a user wants to watch.
 
-${historyText}User query: "${query}"
+User query: "${query}"
 
 Extract search parameters to find matching movies on TMDB. Think about:
 - Specific films, franchises, or directors they mention
@@ -95,23 +89,46 @@ function safeParseJSON<T>(raw: string): T {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get("query");
-  const resetContext = searchParams.get("resetContext") === "true";
+  const query = searchParams.get("query")?.trim() || "";
 
-  if (!query?.trim()) {
+  if (!query) {
     return NextResponse.json({ error: "query is required" }, { status: 400 });
   }
 
-  if (resetContext) {
-    resetHistory();
+  const session = await getRequestSession(request);
+  const betaLimit = consumeBetaLimit({
+    request,
+    userId: session?.user.id,
+    action: "legacy_recommendations",
+  });
+
+  const distinctId = session?.user.id ?? `anon_${request.headers.get("x-flickbuddy-client-id") ?? "unknown"}`;
+  getPostHogClient().capture({
+    distinctId,
+    event: "ai_recommendations_requested",
+    properties: {
+      query,
+      authenticated: !!session?.user.id,
+    },
+  });
+
+  if (!betaLimit.allowed) {
+    return NextResponse.json(
+      {
+        error:
+          "You have reached today's beta AI recommendation limit. Try discovery or come back tomorrow.",
+      },
+      {
+        status: 429,
+        headers: betaLimitHeaders(betaLimit),
+      }
+    );
   }
 
   try {
-    const history = getHistory();
-
     // --- Pass 1: Extract search intent ---
     const intentRaw = await generateChatCompletionWithModel(
-      buildIntentPrompt(history, query),
+      buildIntentPrompt(query),
       MODEL,
     );
 
@@ -190,13 +207,6 @@ export async function GET(request: NextRequest) {
           hasContentAnalysis: true,
         };
       });
-
-    // Update conversation history
-    addToHistory("user", query);
-    addToHistory(
-      "assistant",
-      `Found ${results.length} movies. ${intent.explanation}`
-    );
 
     return NextResponse.json({ results });
   } catch (error) {

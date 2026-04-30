@@ -11,7 +11,6 @@ import {
 } from "react";
 import {
   Bot,
-  Compass,
   Film,
   Loader2,
   Search,
@@ -19,8 +18,10 @@ import {
   Star,
 } from "lucide-react";
 import { AppNav } from "@/components/AppNav";
+import { BrandLink, BrandLogo } from "@/components/BrandLogo";
 import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { Movie } from "@/types/movie";
+import { getClientId, sendFeedback, trackEvent } from "@/utils/analytics";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w500${path}`;
 
@@ -52,6 +53,7 @@ type DiscoverMode = (typeof modes)[number]["value"];
 
 interface DiscoverResponse {
   mode: "trending" | "semantic" | "ambiguous";
+  error?: string;
   interpretedQuery: {
     explanation: string;
     searchTerms: string[];
@@ -60,13 +62,6 @@ interface DiscoverResponse {
   titleMatches: Movie[];
   discoveryMatches: Movie[];
   results: Movie[];
-}
-
-function compactNumber(value: number) {
-  return new Intl.NumberFormat("en", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
 }
 
 function getMovieYear(movie: Movie) {
@@ -78,29 +73,53 @@ export default function DiscoverPage() {
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [activePrompt, setActivePrompt] = useState("");
   const [mode, setMode] = useState<DiscoverMode>("smart");
-  const [movies, setMovies] = useState<Movie[]>([]);
   const [titleMatches, setTitleMatches] = useState<Movie[]>([]);
   const [discoveryMatches, setDiscoveryMatches] = useState<Movie[]>([]);
   const [interpretedQuery, setInterpretedQuery] =
     useState<DiscoverResponse["interpretedQuery"]>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const hasQuery = submittedQuery.trim().length > 0;
-  const visibleResults = hasQuery ? discoveryMatches : movies;
 
   const loadMovies = useCallback(async (nextQuery: string, nextMode: DiscoverMode) => {
     setIsLoading(true);
+    setError("");
     const params = new URLSearchParams();
     if (nextQuery.trim()) params.set("query", nextQuery.trim());
     params.set("mode", nextMode);
 
     try {
-      const response = await fetch(`/api/discover?${params.toString()}`);
+      const response = await fetch(`/api/discover?${params.toString()}`, {
+        headers: { "x-flickbuddy-client-id": getClientId() },
+      });
       const data = (await response.json()) as DiscoverResponse;
-      setMovies(data.results || []);
+      if (!response.ok) {
+        throw new Error(
+          "error" in data && typeof data.error === "string"
+            ? data.error
+            : "Could not load recommendations."
+        );
+      }
       setTitleMatches(data.titleMatches || []);
       setDiscoveryMatches(data.discoveryMatches || []);
       setInterpretedQuery(data.interpretedQuery);
+      trackEvent(nextQuery.trim() ? "discover_results_loaded" : "discover_opened", {
+        metadata: {
+          mode: nextMode,
+          query: nextQuery.trim() || null,
+          resultCount: data.results?.length || 0,
+        },
+      });
+    } catch (caughtError) {
+      setTitleMatches([]);
+      setDiscoveryMatches([]);
+      setInterpretedQuery(null);
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Could not load recommendations."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -115,6 +134,11 @@ export default function DiscoverPage() {
     const nextQuery = draft.trim();
     setActivePrompt("");
     setSubmittedQuery(nextQuery);
+    if (nextQuery) {
+      trackEvent("discover_searched", {
+        metadata: { query: nextQuery, mode },
+      });
+    }
     if (nextQuery) setDraft("");
   };
 
@@ -128,6 +152,9 @@ export default function DiscoverPage() {
     setActivePrompt("");
     setSubmittedQuery(nextQuery);
     setDraft("");
+    trackEvent("discover_refined", {
+      metadata: { query: nextQuery, refinement, mode },
+    });
   };
 
   const handlePrompt = (prompt: string) => {
@@ -136,6 +163,9 @@ export default function DiscoverPage() {
     setDraft("");
     setMode(nextMode);
     setSubmittedQuery(prompt);
+    trackEvent("discover_prompt_used", {
+      metadata: { prompt, mode: nextMode },
+    });
   };
 
   const handleRefine = (refinement: string) => {
@@ -145,6 +175,9 @@ export default function DiscoverPage() {
     setDraft("");
     setSubmittedQuery(nextQuery);
     if (refinement === "Only series") setMode("series");
+    trackEvent("discover_refine_chip_used", {
+      metadata: { refinement, query: nextQuery },
+    });
   };
 
   return (
@@ -153,11 +186,15 @@ export default function DiscoverPage() {
         hasQuery ? "pb-64" : "pb-24"
       }`}
     >
+
       <section
         className={`border-b border-white/5 bg-[#06090c] px-4 ${
           hasQuery ? "sticky top-0 z-30 py-3 backdrop-blur-xl" : "pb-7 pt-8"
         }`}
       >
+        <header className="flex items-center justify-between">
+          <BrandLink className="text-xl" />
+        </header>
         <div className="mx-auto max-w-5xl">
           <div
             className={`flex items-center justify-between ${
@@ -172,8 +209,7 @@ export default function DiscoverPage() {
                 What should we watch?
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-white/58 sm:text-lg">
-                Ask by mood, story, taste, reference title, pacing, era, or the
-                kind of character you want to follow.
+                Describe what you want to watch in your own words, and let FlickBuddy find the perfect movies or series for you.
               </p>
             </div>
           )}
@@ -201,6 +237,8 @@ export default function DiscoverPage() {
       <section className="mx-auto max-w-5xl px-4 pt-5">
         {isLoading ? (
           <DiscoverLoadingState hasQuery={hasQuery} />
+        ) : error ? (
+          <ErrorState message={error} />
         ) : hasQuery ? (
           <div className="space-y-7">
             <ConversationPanel
@@ -220,20 +258,7 @@ export default function DiscoverPage() {
               <EmptyState />
             )}
           </div>
-        ) : (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/40">
-                  Starting points
-                </p>
-                <h2 className="mt-1 text-xl font-bold">Trending discovery pool</h2>
-              </div>
-              <Compass className="h-5 w-5 text-cyan-200" />
-            </div>
-            <ResultGrid movies={visibleResults} />
-          </div>
-        )}
+        ) : null}
       </section>
 
       {hasQuery && (
@@ -300,7 +325,6 @@ function Composer({
       className="overflow-hidden rounded-md border border-white/12 bg-white/[0.06] shadow-2xl shadow-black/30"
     >
       <label className="flex gap-3 px-4 pt-4">
-        <Bot className="mt-1 h-5 w-5 shrink-0 text-cyan-200" />
         <textarea
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
@@ -312,18 +336,18 @@ function Composer({
 
       <div className="flex flex-col gap-3 border-t border-white/8 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-2 overflow-x-auto">
-          {modes.map((discoverMode) => (
+          {modes.map((item) => (
             <button
-              key={discoverMode.value}
+              key={item.value}
               type="button"
-              onClick={() => onModeChange(discoverMode.value)}
-              className={`shrink-0 rounded-md px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] ${
-                mode === discoverMode.value
+              onClick={() => onModeChange(item.value)}
+              className={`shrink-0 rounded-md px-3 py-2 text-xs font-black uppercase tracking-[0.12em] transition ${
+                mode === item.value
                   ? "bg-white text-black"
-                  : "bg-black/20 text-white/55"
+                  : "bg-white/[0.05] text-white/58 hover:bg-white/[0.09] hover:text-white"
               }`}
             >
-              {discoverMode.label}
+              {item.label}
             </button>
           ))}
         </div>
@@ -414,19 +438,19 @@ function BottomComposer({
         </form>
 
         <div className="mt-2 flex gap-1 overflow-x-auto">
-          {modes.map((discoverMode) => (
+          {modes.map((item) => (
             <button
-              key={discoverMode.value}
+              key={item.value}
               type="button"
-              onClick={() => onModeChange(discoverMode.value)}
+              onClick={() => onModeChange(item.value)}
               disabled={isLoading}
-              className={`shrink-0 rounded-md px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                mode === discoverMode.value
-                  ? "bg-white text-black"
-                  : "bg-white/[0.06] text-white/55 hover:text-white"
-              }`}
+              className={`shrink-0 rounded-md px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] transition ${
+                mode === item.value
+                  ? "bg-cyan-300 text-black"
+                  : "bg-white/[0.05] text-white/55 hover:text-white"
+              } disabled:cursor-not-allowed disabled:opacity-50`}
             >
-              {discoverMode.label}
+              {item.label}
             </button>
           ))}
         </div>
@@ -459,7 +483,7 @@ function ConversationPanel({
 
       <div className="max-w-3xl rounded-md border border-white/10 bg-white/[0.045] p-4">
         <div className="flex items-center gap-2 text-sm font-bold text-cyan-200">
-          <Bot className="h-4 w-4" />
+          <BrandLogo size={18} />
           FlickBuddy
         </div>
         <p className="mt-3 text-sm leading-6 text-white/75">
@@ -527,6 +551,12 @@ function MoviePill({ movie }: { movie: Movie }) {
   return (
     <Link
       href={`/movie/${movie.id}?type=${movie.mediaType === "tv" ? "tv" : "movie"}`}
+      onClick={() =>
+        trackEvent("movie_opened", {
+          movie,
+          metadata: { source: "discover_title_match" },
+        })
+      }
       className="flex w-72 shrink-0 gap-3 rounded-md border border-white/10 bg-white/[0.045] p-2"
     >
       <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-sm bg-white/[0.05]">
@@ -579,93 +609,107 @@ function RecommendationList({ movies }: { movies: Movie[] }) {
 }
 
 function RecommendationCard({ movie, rank }: { movie: Movie; rank: number }) {
+  const [feedbackSent, setFeedbackSent] = useState("");
   const year = getMovieYear(movie);
   const reason = movie.matchReason || movie.feedReason || movie.overview;
+  const movieHref = `/movie/${movie.id}?type=${movie.mediaType === "tv" ? "tv" : "movie"}`;
+
+  const handleFeedback = (
+    feedback: "good_pick" | "bad_pick" | "already_watched"
+  ) => {
+    setFeedbackSent(feedback);
+    sendFeedback({
+      movie,
+      feedback,
+      source: "discover",
+      metadata: {
+        rank,
+        title: movie.title,
+        relevanceScore: movie.relevanceScore,
+      },
+    });
+    trackEvent("recommendation_feedback", {
+      movie,
+      metadata: { feedback, source: "discover", rank },
+    });
+  };
 
   return (
-    <Link
-      href={`/movie/${movie.id}?type=${movie.mediaType === "tv" ? "tv" : "movie"}`}
-      className="group overflow-hidden rounded-md border border-white/10 bg-white/[0.045] transition hover:border-cyan-300/40"
-    >
-      <div className="relative aspect-[16/10] bg-white/[0.04]">
-        <Image
-          src={posterUrl(movie.backdrop_path || movie.poster_path)}
-          alt={movie.title}
-          fill
-          sizes="(min-width: 1280px) 30vw, (min-width: 640px) 50vw, 100vw"
-          className="object-cover transition duration-300 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
-        <div className="absolute left-3 top-3 rounded-md bg-cyan-300 px-2 py-1 text-xs font-black text-black">
-          #{rank}
-        </div>
-        <div className="absolute bottom-3 left-3 right-3">
-          <p className="line-clamp-2 text-lg font-black leading-tight">
-            {movie.title}
-          </p>
-          <p className="mt-1 text-xs font-bold text-white/60">
-            {movie.mediaType === "tv" ? "Series" : "Movie"}
-            {year ? ` / ${year}` : ""} / {movie.vote_average.toFixed(1)}
-          </p>
-        </div>
-      </div>
-      <div className="p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-200">
-          Why this fits
-        </p>
-        <p className="mt-2 line-clamp-3 text-sm leading-6 text-white/68">
-          {reason}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {movie.genres.slice(0, 3).map((genre) => (
-            <span
-              key={genre}
-              className="rounded-full bg-black/24 px-2 py-1 text-[11px] font-bold text-white/55"
-            >
-              {genre}
-            </span>
-          ))}
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function ResultGrid({ movies }: { movies: Movie[] }) {
-  return (
-    <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 lg:grid-cols-6">
-      {movies.map((movie) => (
-        <Link
-          key={`${movie.mediaType || "movie"}-${movie.id}`}
-          href={`/movie/${movie.id}?type=${movie.mediaType === "tv" ? "tv" : "movie"}`}
-          className="group relative aspect-[2/3] overflow-hidden bg-white/[0.04]"
-        >
+    <article className="overflow-hidden rounded-md border border-white/10 bg-white/[0.045] transition hover:border-cyan-300/40">
+      <Link
+        href={movieHref}
+        onClick={() =>
+          trackEvent("movie_opened", {
+            movie,
+            metadata: { source: "discover_recommendation", rank },
+          })
+        }
+        className="group block"
+      >
+        <div className="relative aspect-[16/10] bg-white/[0.04]">
           <Image
-            src={posterUrl(movie.poster_path)}
+            src={posterUrl(movie.backdrop_path || movie.poster_path)}
             alt={movie.title}
             fill
-            sizes="(min-width: 1024px) 16vw, 33vw"
+            sizes="(min-width: 1280px) 30vw, (min-width: 640px) 50vw, 100vw"
             className="object-cover transition duration-300 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80" />
-          <div className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-1 text-[11px] font-bold backdrop-blur">
-            {compactNumber(movie.popularity * 1000)}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+          <div className="absolute left-3 top-3 rounded-md bg-cyan-300 px-2 py-1 text-xs font-black text-black">
+            #{rank}
           </div>
-          <div className="absolute right-2 top-2 rounded-full bg-cyan-300 px-2 py-1 text-[10px] font-bold uppercase text-black">
-            {movie.mediaType === "tv" ? "Series" : "Movie"}
-          </div>
-          <div className="absolute bottom-2 left-2 right-2">
-            <p className="line-clamp-2 text-xs font-bold leading-tight">
+          <div className="absolute bottom-3 left-3 right-3">
+            <p className="line-clamp-2 text-lg font-black leading-tight">
               {movie.title}
             </p>
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-white/70">
-              <Star className="h-3 w-3 fill-yellow-300 text-yellow-300" />
-              {movie.vote_average.toFixed(1)}
+            <p className="mt-1 text-xs font-bold text-white/60">
+              {movie.mediaType === "tv" ? "Series" : "Movie"}
+              {year ? ` / ${year}` : ""} / {movie.vote_average.toFixed(1)}
             </p>
           </div>
-        </Link>
-      ))}
-    </div>
+        </div>
+        <div className="p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-200">
+            Why this fits
+          </p>
+          <p className="mt-2 line-clamp-3 text-sm leading-6 text-white/68">
+            {reason}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {movie.genres.slice(0, 3).map((genre) => (
+              <span
+                key={genre}
+                className="rounded-full bg-black/24 px-2 py-1 text-[11px] font-bold text-white/55"
+              >
+                {genre}
+              </span>
+            ))}
+          </div>
+        </div>
+      </Link>
+      <div className="flex gap-2 border-t border-white/8 p-3">
+        {[
+          ["good_pick", "Good"],
+          ["bad_pick", "Off"],
+          ["already_watched", "Seen"],
+        ].map(([feedback, label]) => (
+          <button
+            key={feedback}
+            type="button"
+            onClick={() =>
+              handleFeedback(feedback as "good_pick" | "bad_pick" | "already_watched")
+            }
+            className={`flex-1 rounded-sm border px-2 py-2 text-xs font-black uppercase tracking-[0.08em] transition ${
+              feedbackSent === feedback
+                ? "border-cyan-300 bg-cyan-300 text-black"
+                : "border-white/10 bg-black/20 text-white/60 hover:text-white"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </article>
   );
 }
 
@@ -718,6 +762,17 @@ function EmptyState() {
       <p className="text-lg font-bold">No matches found</p>
       <p className="mt-2 text-sm text-white/55">
         Try a richer prompt like “mind-bending thriller with a smart lead.”
+      </p>
+    </div>
+  );
+}
+
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className="rounded-md border border-red-300/20 bg-red-950/20 px-6 py-10 text-center">
+      <p className="text-base font-bold text-red-100">{message}</p>
+      <p className="mt-2 text-sm text-white/55">
+        Try again in a bit or use the regular search tab.
       </p>
     </div>
   );

@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { MouseEvent, TouchEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Clapperboard, Rabbit, Star } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clapperboard, Star } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Movie } from "@/types/movie";
 
 interface ListMovieItem {
@@ -157,7 +158,7 @@ export function PublicListStoryViewer({ list }: { list: PublicMovieList }) {
           href="/"
           className="flex items-center gap-2 rounded-full bg-black/38 px-3 py-2 text-sm font-bold backdrop-blur"
         >
-          <Rabbit className="h-4 w-4 text-cyan-200" />
+          <BrandLogo size={18} />
           FlickBuddy
         </Link>
         <Link
@@ -247,7 +248,7 @@ function IntroSlide({ list }: { list: PublicMovieList }) {
                 style={{ backgroundImage: `url(${list.creator.avatarUrl})` }}
               />
             ) : (
-              <Rabbit className="h-7 w-7 text-cyan-200" />
+              <BrandLogo size={30} />
             )}
           </div>
           <div>

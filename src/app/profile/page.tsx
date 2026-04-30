@@ -9,34 +9,19 @@ import {
   Grid3X3,
   List,
   Lock,
+  Sparkles,
   Star,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { AppNav } from "@/components/AppNav";
 import { AuthNudge } from "@/components/auth/AuthNudge";
+import { BrandLink, BrandLogo } from "@/components/BrandLogo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import posthog from "posthog-js";
 import { authClient } from "@/lib/auth-client";
 import { Movie, MovieListItem } from "@/types/movie";
-import { MovieStorage } from "@/utils/movieStorage";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w500${path}`;
-
-function uniqueMovies(movies: MovieListItem[]) {
-  const seen = new Set<number>();
-  return movies.filter((movie) => {
-    if (seen.has(movie.id)) return false;
-    seen.add(movie.id);
-    return true;
-  });
-}
-
-function getStoredMovies(listMatcher: (name: string) => boolean) {
-  return uniqueMovies(
-    MovieStorage.getMovieLists()
-      .filter((list) => listMatcher(list.name))
-      .flatMap((list) => list.movies)
-  );
-}
 
 interface ListMovieItem {
   id: string;
@@ -64,9 +49,13 @@ export default function ProfilePage() {
     "liked"
   );
   const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signup");
   const [isListsLoading, setIsListsLoading] = useState(false);
   const session = authClient.useSession();
   const currentUser = session.data?.user;
+  const isSessionLoading = Boolean(
+    (session as { isPending?: boolean }).isPending
+  );
   const displayName = currentUser?.name || "Your FlickBuddy";
   const displayHandle =
     currentUser?.email || (currentUser ? "FlickBuddy member" : "Taste Profile");
@@ -87,21 +76,21 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function loadProfileMovies() {
-      if (currentUser) {
-        const response = await fetch("/api/interactions");
-        if (response.ok) {
-          const data = (await response.json()) as {
-            liked: MovieListItem[];
-            saved: MovieListItem[];
-          };
-          setLikedMovies(data.liked);
-          setSavedMovies(data.saved);
-          return;
-        }
+      if (!currentUser) {
+        setLikedMovies([]);
+        setSavedMovies([]);
+        return;
       }
 
-      setLikedMovies(getStoredMovies((name) => name.includes("Liked")));
-      setSavedMovies(getStoredMovies((name) => name.includes("Saved")));
+      const response = await fetch("/api/interactions");
+      if (response.ok) {
+        const data = (await response.json()) as {
+          liked: MovieListItem[];
+          saved: MovieListItem[];
+        };
+        setLikedMovies(data.liked);
+        setSavedMovies(data.saved);
+      }
     }
 
     void loadProfileMovies();
@@ -146,18 +135,101 @@ export default function ProfilePage() {
       .map(([genre]) => genre);
   }, [likedMovies]);
 
+  const openAuth = (mode: "signin" | "signup") => {
+    setAuthMode(mode);
+    setAuthOpen(true);
+  };
+
+  if (isSessionLoading) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-[#05080b] px-6 text-white">
+        <div className="text-center">
+          <Clapperboard className="mx-auto h-10 w-10 text-cyan-200" />
+          <p className="mt-4 text-sm font-bold text-white/70">
+            Loading your profile...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <main className="min-h-dvh bg-[#05080b] px-5 pb-24 pt-5 text-white">
+        <Toaster position="top-center" />
+        <section className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-3xl flex-col">
+          <header className="flex items-center justify-between">
+            <BrandLink className="text-xl" />
+            <button
+              onClick={() => openAuth("signin")}
+              className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold"
+            >
+              Log in
+            </button>
+          </header>
+
+          <div className="flex flex-1 items-center">
+            <section className="w-full rounded-md border border-cyan-300/18 bg-white/[0.04] p-6 shadow-2xl shadow-black/30 sm:p-8">
+              <p className="mt-6 text-xs font-bold uppercase tracking-[0.2em] text-cyan-200">
+                Personalization needs an account
+              </p>
+              <h1 className="mt-3 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
+                Create an account to build your taste profile and get personalized recommendations
+              </h1>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-white/68">
+                FlickBuddy uses your likes, passes, saves, watched titles, and
+                feedback to build the best recommendations for you.
+              </p>
+
+              <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                <ProfileBenefit title="Save taste" text="Keep likes, passes, and saves." />
+                <ProfileBenefit title="Tune picks" text="Improve your feed over time." />
+                <ProfileBenefit title="Build lists" text="Create and share watchlists." />
+              </div>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <button
+                  onClick={() => openAuth("signup")}
+                  className="rounded-md bg-cyan-300 px-5 py-3 text-sm font-black text-black transition hover:bg-cyan-200"
+                >
+                  Create account
+                </button>
+                <Link
+                  href="/discover"
+                  className="rounded-md border border-white/12 px-5 py-3 text-center text-sm font-bold text-white/75 transition hover:border-white/25 hover:text-white"
+                >
+                  Try discovery first
+                </Link>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <AuthNudge
+          open={authOpen}
+          onOpenChange={setAuthOpen}
+          initialMode={authMode}
+          onAuthed={() => {
+            void session.refetch();
+          }}
+        />
+        <AppNav />
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-dvh bg-[#05080b] pb-24 text-white">
       <Toaster position="top-center" />
       <section className="mx-auto max-w-5xl px-4 pb-8 pt-5">
         <header className="flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold tracking-tight">
-            FlickBuddy
-          </Link>
+          <BrandLink className="text-xl" />
           <div className="flex items-center gap-2">
             {currentUser ? (
               <button
                 onClick={async () => {
+                  posthog.capture("user_signed_out");
+                  posthog.reset();
                   await authClient.signOut();
                   await session.refetch();
                 }}
@@ -167,7 +239,7 @@ export default function ProfilePage() {
               </button>
             ) : (
               <button
-                onClick={() => setAuthOpen(true)}
+                onClick={() => openAuth("signin")}
                 className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-bold text-black"
               >
                 Log in
@@ -187,7 +259,7 @@ export default function ProfilePage() {
                 />
               ) : (
                 <AvatarFallback className="bg-cyan-300/15 text-xl font-black text-cyan-100">
-                  {currentUser ? initials || "FR" : <Clapperboard className="h-11 w-11" />}
+                  {currentUser ? initials || "FR" : <BrandLogo size={44} />}
                 </AvatarFallback>
               )}
             </Avatar>
@@ -313,7 +385,7 @@ export default function ProfilePage() {
               </p>
               {!currentUser && (
                 <button
-                  onClick={() => setAuthOpen(true)}
+                  onClick={() => openAuth("signup")}
                   className="mt-5 rounded-md bg-cyan-300 px-5 py-3 text-sm font-bold text-black"
                 >
                   Create account
@@ -327,15 +399,28 @@ export default function ProfilePage() {
               lists={movieLists}
               isLoading={isListsLoading}
               isAuthed={!!currentUser}
-              onAuth={() => setAuthOpen(true)}
+              onAuth={() => openAuth("signup")}
             />
           )}
         </section>
+
+        <footer className="mt-10 flex flex-wrap gap-4 text-xs font-bold uppercase tracking-[0.14em] text-white/38">
+          <Link href="/about" className="hover:text-cyan-200">
+            About
+          </Link>
+          <Link href="/privacy" className="hover:text-cyan-200">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-cyan-200">
+            Terms
+          </Link>
+        </footer>
       </section>
 
       <AuthNudge
         open={authOpen}
         onOpenChange={setAuthOpen}
+        initialMode={authMode}
         onAuthed={() => {
           void session.refetch();
         }}
@@ -343,6 +428,15 @@ export default function ProfilePage() {
 
       <AppNav />
     </main>
+  );
+}
+
+function ProfileBenefit({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-md border border-white/10 bg-black/18 p-4">
+      <p className="text-sm font-black text-white">{title}</p>
+      <p className="mt-1 text-sm leading-5 text-white/55">{text}</p>
+    </div>
   );
 }
 

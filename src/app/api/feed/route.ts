@@ -131,6 +131,8 @@ function addCandidate(
 function scoreByTaste(candidate: Candidate, body: FeedRequestBody) {
   const likedGenres = new Set(body.likedGenres || []);
   const dislikedGenres = new Set(body.dislikedGenres || []);
+  const likedSeedMedia = new Set((body.likedSeeds || []).map((seed) => seed.mediaType));
+  const savedSeedMedia = new Set((body.savedSeeds || []).map((seed) => seed.mediaType));
   const likedThemes = (body.aiProfile?.likedThemes || []).map((theme) =>
     theme.toLowerCase()
   );
@@ -154,6 +156,10 @@ function scoreByTaste(candidate: Candidate, body: FeedRequestBody) {
     }
   });
 
+  const candidateMedia = candidate.movie.mediaType === "tv" ? "tv" : "movie";
+  if (likedSeedMedia.has(candidateMedia)) candidate.score += 5;
+  if (savedSeedMedia.has(candidateMedia)) candidate.score += 3;
+
   likedThemes.forEach((theme) => {
     if (searchableText.includes(theme)) candidate.score += 7;
   });
@@ -163,6 +169,8 @@ function scoreByTaste(candidate: Candidate, body: FeedRequestBody) {
 
   candidate.score += Math.min(candidate.movie.vote_average, 10);
   candidate.score += Math.min(candidate.movie.popularity / 50, 8);
+  candidate.score += Math.min(candidate.movie.vote_count / 1000, 4);
+  if (candidate.movie.vote_count < 25) candidate.score -= 8;
 }
 
 function makeFeedReason(candidate: Candidate) {
@@ -201,6 +209,11 @@ async function buildFeed(body: FeedRequestBody) {
       : (body.savedMovieIds || []).map((id) => ({ id, mediaType: "movie" as const }))
   ).slice(0, MAX_PERSONAL_SEEDS);
   const likedGenreIds = getGenreIdsByNames(body.likedGenres || []);
+  const hasTasteSignals =
+    likedSeeds.length > 0 ||
+    savedSeeds.length > 0 ||
+    likedGenreIds.length > 0 ||
+    Boolean(body.aiProfile);
   const primaryPage = cursorPage(cursor);
   const secondaryPage = cursorPage(cursor, 3);
   const explorationPage = cursorPage(cursor, 9);
@@ -237,53 +250,58 @@ async function buildFeed(body: FeedRequestBody) {
   ]);
 
   const candidates = new Map<string, Candidate>();
+  const trendingScore = hasTasteSignals ? 9 : 16;
+  const popularScore = hasTasteSignals ? 4 : 8;
+  const discoveryScore = hasTasteSignals ? 10 : 12;
 
   trendingMovies.forEach((movie) =>
-    addCandidate(candidates, movie, 16, "trending this week")
+    addCandidate(candidates, movie, trendingScore, "trending this week")
   );
   trendingTV.forEach((movie) =>
-    addCandidate(candidates, movie, 16, "trending this week")
+    addCandidate(candidates, movie, trendingScore, "trending this week")
   );
-  popularMovies.forEach((movie) => addCandidate(candidates, movie, 8, "popular on TMDB"));
-  popularTV.forEach((movie) => addCandidate(candidates, movie, 8, "popular on TMDB"));
+  popularMovies.forEach((movie) => addCandidate(candidates, movie, popularScore, "popular on TMDB"));
+  popularTV.forEach((movie) => addCandidate(candidates, movie, popularScore, "popular on TMDB"));
   discoveryMovies.forEach((movie) =>
-    addCandidate(candidates, movie, 12, "fresh discovery")
+    addCandidate(candidates, movie, discoveryScore, "fresh discovery")
   );
-  discoveryTV.forEach((movie) => addCandidate(candidates, movie, 12, "fresh discovery"));
+  discoveryTV.forEach((movie) => addCandidate(candidates, movie, discoveryScore, "fresh discovery"));
   [...genreMovieMatches, ...genreTVMatches].forEach((movie) =>
-    addCandidate(candidates, movie, 22, "because of your favorite genres")
+    addCandidate(candidates, movie, 26, "because of your favorite genres")
   );
   aiSearchMatches.forEach((movie) =>
-    addCandidate(candidates, movie, 30, "AI taste profile")
+    addCandidate(candidates, movie, 38, "AI taste profile")
   );
 
   likedRecommendationBatches.flat().forEach((movie) =>
-    addCandidate(candidates, movie, 34, "because of movies you liked")
+    addCandidate(candidates, movie, 44, "because of movies you liked")
   );
 
   savedRecommendationBatches.flat().forEach((movie) =>
-    addCandidate(candidates, movie, 28, "because of your saved movies")
+    addCandidate(candidates, movie, 36, "because of your saved movies")
   );
 
+  const excludedKeys = new Set(body.excludeKeys || []);
   const excluded = new Set([
-    ...(body.excludeMovieIds || []),
+    ...(excludedKeys.size === 0 ? body.excludeMovieIds || [] : []),
     ...(body.dislikedMovieIds || []),
     ...(body.watchedMovieIds || []),
   ]);
-  const excludedKeys = new Set(body.excludeKeys || []);
 
-  const rankedCandidates = Array.from(candidates.values())
+  const rankedCandidates = diversifyCandidates(
+    Array.from(candidates.values())
     .filter((candidate) => {
       const key = `${candidate.movie.mediaType || "movie"}:${candidate.movie.id}`;
-      return !excluded.has(candidate.movie.id) && !excludedKeys.has(key);
+      return !excludedKeys.has(key) && !excluded.has(candidate.movie.id);
     })
     .map((candidate) => {
       scoreByTaste(candidate, body);
       candidate.score += Math.random() * 6;
       return candidate;
     })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, FEED_SIZE);
+    .sort((a, b) => b.score - a.score),
+    FEED_SIZE
+  );
 
   return Promise.all(
     rankedCandidates.map((candidate) =>
@@ -294,6 +312,41 @@ async function buildFeed(body: FeedRequestBody) {
       )
     )
   );
+}
+
+function diversifyCandidates(candidates: Candidate[], limit: number) {
+  const selected: Candidate[] = [];
+  const genreCounts = new Map<string, number>();
+  const mediaCounts = new Map<string, number>();
+  const maxPerPrimaryGenre = Math.max(5, Math.ceil(limit / 4));
+  const maxPerMediaType = Math.ceil(limit * 0.72);
+
+  for (const candidate of candidates) {
+    if (selected.length >= limit) break;
+
+    const primaryGenre = candidate.movie.genres[0] || "Unknown";
+    const mediaType = candidate.movie.mediaType === "tv" ? "tv" : "movie";
+    const genreCount = genreCounts.get(primaryGenre) || 0;
+    const mediaCount = mediaCounts.get(mediaType) || 0;
+
+    if (genreCount >= maxPerPrimaryGenre || mediaCount >= maxPerMediaType) {
+      continue;
+    }
+
+    selected.push(candidate);
+    genreCounts.set(primaryGenre, genreCount + 1);
+    mediaCounts.set(mediaType, mediaCount + 1);
+  }
+
+  if (selected.length >= limit) return selected;
+
+  for (const candidate of candidates) {
+    if (selected.length >= limit) break;
+    if (selected.includes(candidate)) continue;
+    selected.push(candidate);
+  }
+
+  return selected;
 }
 
 async function getSeedRecommendations(seed: MediaSeed, page: number) {
