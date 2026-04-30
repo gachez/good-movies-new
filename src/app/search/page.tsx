@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Search, SlidersHorizontal, Star } from "lucide-react";
 import { AppNav } from "@/components/AppNav";
-import { FlickBuddyLoader } from "@/components/FlickBuddyLoader";
+import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { Movie } from "@/types/movie";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w500${path}`;

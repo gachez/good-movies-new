@@ -1,4 +1,4 @@
-import { FlickBuddyLoader } from "@/components/FlickBuddyLoader";
+import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 
 export default function Loading() {
   return (
