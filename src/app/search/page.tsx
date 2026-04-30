@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Search, SlidersHorizontal, Star } from "lucide-react";
 import { AppNav } from "@/components/AppNav";
-import { FilmRabbitLoader } from "@/components/FilmRabbitLoader";
+import { FlickBuddyLoader } from "@/components/FlickBuddyLoader";
 import { Movie } from "@/types/movie";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w500${path}`;
@@ -158,10 +158,10 @@ function SkeletonGrid() {
   return (
     <div className="space-y-4 p-1">
       <div className="mx-3 rounded-md border border-cyan-300/15 bg-[#071118] px-4 py-5">
-        <FilmRabbitLoader
+        <FlickBuddyLoader
           size="sm"
           title="Searching the collection..."
-          message="FilmRabbit is checking titles, genres, and series before the posters appear."
+          message="FlickBuddy is checking titles, genres, and series before the posters appear."
         />
       </div>
       <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 lg:grid-cols-6">

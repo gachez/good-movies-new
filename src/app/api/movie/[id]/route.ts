@@ -27,7 +27,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const result = await enrichMovieForFeed(
     movie,
     90,
-    "Shared from FilmRabbit."
+    "Shared from FlickBuddy."
   );
 
   return NextResponse.json({ result });

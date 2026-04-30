@@ -1,7 +1,3 @@
-// In-memory conversation history.
-// Works for development (persistent Node.js process).
-// For multi-user production, replace with Redis or DB-backed sessions.
-
 export interface Message {
   role: "user" | "assistant";
   content: string;

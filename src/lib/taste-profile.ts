@@ -115,7 +115,7 @@ function buildProfilePrompt({
   saved: Movie[];
   disliked: Movie[];
 }) {
-  return `You are FilmRabbit's taste profiler. Analyze this user's movie and series behavior and produce grounded discovery guidance for TMDB searches.
+  return `You are FlickBuddy's taste profiler. Analyze this user's movie and series behavior and produce grounded discovery guidance for TMDB searches.
 
 Liked:
 ${JSON.stringify(liked.slice(0, 24).map(compactMovie), null, 2)}
@@ -179,7 +179,7 @@ export async function refreshTasteProfile(userId: string) {
     summary:
       typeof parsed.summary === "string"
         ? parsed.summary.trim().slice(0, 280)
-        : "A developing FilmRabbit taste profile.",
+        : "A developing FlickBuddy taste profile.",
     likedThemes: stringList(parsed.likedThemes, 8),
     dislikedThemes: stringList(parsed.dislikedThemes, 5),
     referenceTitles: stringList(parsed.referenceTitles, 8, 120),

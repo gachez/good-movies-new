@@ -2,32 +2,32 @@
 
 import Lottie from "lottie-react";
 import { useReducedMotion } from "framer-motion";
-import filmRabbitAnimation from "../../public/assets/MeditatingRabbitFilmRabbit.json";
+import FlickBuddyAnimation from "../../public/assets/MeditatingRabbitFilmRabbit.json";
 import { cn } from "@/lib/utils";
 
-type FilmRabbitLoaderSize = "sm" | "md" | "lg";
+type FlickBuddyLoaderSize = "sm" | "md" | "lg";
 
-const animationSizes: Record<FilmRabbitLoaderSize, string> = {
+const animationSizes: Record<FlickBuddyLoaderSize, string> = {
   sm: "h-24 w-24",
   md: "h-36 w-36",
   lg: "h-48 w-48 sm:h-56 sm:w-56",
 };
 
-interface FilmRabbitLoaderProps {
+interface FlickBuddyLoaderProps {
   title?: string;
   message?: string;
-  size?: FilmRabbitLoaderSize;
+  size?: FlickBuddyLoaderSize;
   className?: string;
   animationClassName?: string;
 }
 
-export function FilmRabbitLoader({
-  title = "FilmRabbit is thinking...",
+export function FlickBuddyLoader({
+  title = "FlickBuddy is thinking...",
   message,
   size = "md",
   className,
   animationClassName,
-}: FilmRabbitLoaderProps) {
+}: FlickBuddyLoaderProps) {
   const reduceMotion = useReducedMotion();
 
   return (
@@ -45,7 +45,7 @@ export function FilmRabbitLoader({
         )}
       >
         <Lottie
-          animationData={filmRabbitAnimation}
+          animationData={FlickBuddyAnimation}
           loop={!reduceMotion}
           autoplay={!reduceMotion}
           className="h-full w-full"

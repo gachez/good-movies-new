@@ -227,7 +227,7 @@ export function ListDetailView({ listId }: { listId: string }) {
       const url = getShareUrl(data.list.shareSlug);
       const result = await shareOrCopy({
         title: data.list.name,
-        text: `Watch my FilmRabbit list: ${data.list.name}`,
+        text: `Watch my FlickBuddy list: ${data.list.name}`,
         url,
       });
       if (result === "copied") toast.success("Share link copied.");
@@ -250,7 +250,7 @@ export function ListDetailView({ listId }: { listId: string }) {
             <Clapperboard className="mx-auto h-10 w-10 text-cyan-200" />
             <h1 className="mt-4 text-2xl font-black">Sign in to view lists</h1>
             <p className="mt-3 text-sm leading-6 text-white/62">
-              Your FilmRabbit lists are private to your account until you share
+              Your FlickBuddy lists are private to your account until you share
               them.
             </p>
             <Button
@@ -283,7 +283,7 @@ export function ListDetailView({ listId }: { listId: string }) {
             className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]"
           />
           <Link href="/" className="text-xl font-bold tracking-tight">
-            FilmRabbit
+            FlickBuddy
           </Link>
         </header>
 

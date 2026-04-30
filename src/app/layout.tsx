@@ -16,27 +16,27 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   title: {
-    default: "FilmRabbit",
-    template: "%s | FilmRabbit",
+    default: "FlickBuddy",
+    template: "%s | FlickBuddy",
   },
   description: "A personalized movie recommendation feed.",
-  applicationName: "FilmRabbit",
+  applicationName: "FlickBuddy",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
       {
-        url: "/icons/filmrabbit-mascot.svg",
+        url: "/icons/FlickBuddy-mascot.svg",
         type: "image/svg+xml",
       },
       {
-        url: "/icons/filmrabbit-mascot-192.png",
+        url: "/icons/FlickBuddy-mascot-192.png",
         sizes: "192x192",
         type: "image/png",
       },
     ],
     apple: [
       {
-        url: "/icons/filmrabbit-mascot-192.png",
+        url: "/icons/FlickBuddy-mascot-192.png",
         sizes: "192x192",
         type: "image/png",
       },
@@ -44,23 +44,23 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "FilmRabbit",
+    title: "FlickBuddy",
     statusBarStyle: "black-translucent",
   },
   formatDetection: {
     telephone: false,
   },
   openGraph: {
-    title: "FilmRabbit",
+    title: "FlickBuddy",
     description: "A personalized movie recommendation feed.",
-    siteName: "FilmRabbit",
+    siteName: "FlickBuddy",
     type: "website",
     images: [
       {
-        url: "/icons/filmrabbit-mascot.jpg",
+        url: "/icons/FlickBuddy-mascot.jpg",
         width: 1024,
         height: 1024,
-        alt: "FilmRabbit mascot logo",
+        alt: "FlickBuddy mascot logo",
       },
     ],
   },

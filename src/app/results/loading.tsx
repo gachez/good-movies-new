@@ -1,11 +1,11 @@
-import { FilmRabbitLoader } from "@/components/FilmRabbitLoader";
+import { FlickBuddyLoader } from "@/components/FlickBuddyLoader";
 
 export default function Loading() {
   return (
     <main className="flex min-h-dvh items-center justify-center bg-[#05080b] px-6 text-white">
-      <FilmRabbitLoader
+      <FlickBuddyLoader
         title="Preparing your recommendations..."
-        message="FilmRabbit is lining up the best matches for your search."
+        message="FlickBuddy is lining up the best matches for your search."
       />
     </main>
   );

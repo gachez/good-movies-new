@@ -19,7 +19,7 @@ import {
   Star,
 } from "lucide-react";
 import { AppNav } from "@/components/AppNav";
-import { FilmRabbitLoader } from "@/components/FilmRabbitLoader";
+import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { Movie } from "@/types/movie";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w500${path}`;
@@ -460,7 +460,7 @@ function ConversationPanel({
       <div className="max-w-3xl rounded-md border border-white/10 bg-white/[0.045] p-4">
         <div className="flex items-center gap-2 text-sm font-bold text-cyan-200">
           <Bot className="h-4 w-4" />
-          FilmRabbit
+          FlickBuddy
         </div>
         <p className="mt-3 text-sm leading-6 text-white/75">
           {interpretedQuery?.explanation ||
@@ -674,9 +674,9 @@ function DiscoverLoadingState({ hasQuery }: { hasQuery: boolean }) {
     <div className="space-y-5">
       <div className="overflow-hidden rounded-md border border-cyan-300/15 bg-[#071118] p-5 shadow-2xl shadow-black/25">
         <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center sm:text-left">
-          <FilmRabbitLoader
+          <FlickBuddyLoader
             size="sm"
-            title={hasQuery ? "FilmRabbit is finding matches..." : "FilmRabbit is warming up..."}
+            title={hasQuery ? "FlickBuddy is finding matches..." : "FlickBuddy is warming up..."}
             message={
               hasQuery
                 ? "The mascot is checking tone, story, and taste signals before ranking the best picks."

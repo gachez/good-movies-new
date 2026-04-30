@@ -6,20 +6,20 @@ const dataDir = path.join(process.cwd(), "data");
 mkdirSync(dataDir, { recursive: true });
 
 const databasePath =
-  process.env.DATABASE_PATH || path.join(dataDir, "filmrabbit.sqlite");
+  process.env.DATABASE_PATH || path.join(dataDir, "FlickBuddy.sqlite");
 
 const globalForDb = globalThis as typeof globalThis & {
-  filmRabbitDb?: Database.Database;
+  FlickBuddyDb?: Database.Database;
 };
 
 export const db =
-  globalForDb.filmRabbitDb ||
+  globalForDb.FlickBuddyDb ||
   new Database(databasePath, {
     fileMustExist: false,
   });
 
 if (process.env.NODE_ENV !== "production") {
-  globalForDb.filmRabbitDb = db;
+  globalForDb.FlickBuddyDb = db;
 }
 
 db.pragma("journal_mode = WAL");

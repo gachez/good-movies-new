@@ -1,4 +1,4 @@
-const CACHE_NAME = "filmrabbit-shell-v1";
+const CACHE_NAME = "FlickBuddy-shell-v1";
 const APP_SHELL = ["/", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

@@ -486,7 +486,7 @@ export function getPublicListBySlug(slug: string): PublicMovieList | null {
   const creatorName =
     row.creator_name ||
     row.creator_email?.split("@")[0] ||
-    "a FilmRabbit user";
+    "a FlickBuddy user";
 
   return {
     ...toList(row, getItemsForList(row.id)),

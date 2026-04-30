@@ -223,7 +223,7 @@ function buildIntentPrompt(query: string, mode: DiscoverMode, taste: UserTastePa
 Use these as soft preferences only. The user's current request is more important.\n`
     : "";
 
-  return `You are FilmRabbit's movie and TV discovery planner.
+  return `You are FlickBuddy's movie and TV discovery planner.
 
 User request: "${query}"
 Discovery mode: ${mode}
@@ -439,7 +439,7 @@ function buildRankPrompt({
 Do not recommend exact titles the user already liked, saved, disliked, or watched unless they are exact title matches.`
     : "";
 
-  return `You are FilmRabbit's final recommendation ranker.
+  return `You are FlickBuddy's final recommendation ranker.
 
 User request: "${query}"
 Structured intent:
@@ -588,7 +588,7 @@ export async function GET(request: NextRequest) {
       })
       .slice(0, 30)
       .map((movie, index) =>
-        decorateMovie(movie, index, "Trending in the FilmRabbit discovery pool.")
+        decorateMovie(movie, index, "Trending in the FlickBuddy discovery pool.")
       );
 
     return NextResponse.json({

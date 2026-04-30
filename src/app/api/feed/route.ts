@@ -177,7 +177,7 @@ function makeFeedReason(candidate: Candidate) {
     return "Because it matches genres you keep responding to.";
   }
   if (reasons.includes("AI taste profile")) {
-    return "Because FilmRabbit's AI taste profile found a deeper match.";
+    return "Because FlickBuddy's AI taste profile found a deeper match.";
   }
   if (reasons.includes("trending this week")) {
     return "Trending right now and likely worth a look.";

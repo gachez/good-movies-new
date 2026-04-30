@@ -17,7 +17,7 @@ import {
 import toast, { Toaster } from "react-hot-toast";
 import { AppNav } from "@/components/AppNav";
 import { AuthNudge } from "@/components/auth/AuthNudge";
-import { FilmRabbitLoader } from "@/components/FilmRabbitLoader";
+import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { ListSelectionModal } from "@/components/ListSelectionModal";
 import { authClient } from "@/lib/auth-client";
 import { Movie, MovieReview } from "@/types/movie";
@@ -337,7 +337,7 @@ export function MovieFeed() {
     if (!requireAuth()) return;
     const mediaType = movie.mediaType === "tv" ? "tv" : "movie";
     const url = `${window.location.origin}/movie/${movie.id}?type=${mediaType}`;
-    const text = `I found ${movie.title} on FilmRabbit.`;
+    const text = `I found ${movie.title} on FlickBuddy.`;
 
     try {
       const result = await shareOrCopy({
@@ -356,10 +356,10 @@ export function MovieFeed() {
   if (isLoading && movies.length === 0) {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[#05080b] px-6 text-white">
-        <FilmRabbitLoader
+        <FlickBuddyLoader
           size="lg"
           title="Building your movie feed..."
-          message="FilmRabbit is reading your taste signals and lining up movies worth swiping through."
+          message="FlickBuddy is reading your taste signals and lining up movies worth swiping through."
         />
       </main>
     );
@@ -513,7 +513,7 @@ function MovieFeedItem({
         <header className="flex items-start justify-between">
           <div>
             <Link href="/" className="text-xl font-bold tracking-tight">
-              FilmRabbit
+              FlickBuddy
             </Link>
             <div className="mt-1 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-cyan-200/80">
               <span>For You</span>

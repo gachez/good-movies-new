@@ -282,7 +282,7 @@ export function ListManager() {
       const url = getShareUrl(data.list.shareSlug);
       const result = await shareOrCopy({
         title: data.list.name,
-        text: `Watch my FilmRabbit list: ${data.list.name}`,
+        text: `Watch my FlickBuddy list: ${data.list.name}`,
         url,
       });
       if (result === "copied") toast.success("Share link copied.");
@@ -298,7 +298,7 @@ export function ListManager() {
         <Toaster position="top-center" />
         <section className="mx-auto max-w-xl px-5 pt-8">
           <Link href="/" className="text-xl font-bold">
-            FilmRabbit
+            FlickBuddy
           </Link>
           <div className="mt-10 rounded-md border border-white/10 bg-white/[0.04] p-6 text-center">
             <Clapperboard className="mx-auto h-10 w-10 text-cyan-200" />
@@ -335,12 +335,12 @@ export function ListManager() {
         <header className="flex items-center justify-between gap-4">
           <div>
             <Link href="/" className="text-xl font-bold tracking-tight">
-              FilmRabbit
+              FlickBuddy
             </Link>
             <h1 className="mt-5 text-3xl font-black sm:text-5xl">Lists</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">
               Build private movie and series collections. Sharing a list turns
-              it into a permanent FilmRabbit story link.
+              it into a permanent FlickBuddy story link.
             </p>
           </div>
           <Button

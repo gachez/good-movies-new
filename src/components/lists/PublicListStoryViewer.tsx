@@ -158,13 +158,13 @@ export function PublicListStoryViewer({ list }: { list: PublicMovieList }) {
           className="flex items-center gap-2 rounded-full bg-black/38 px-3 py-2 text-sm font-bold backdrop-blur"
         >
           <Rabbit className="h-4 w-4 text-cyan-200" />
-          FilmRabbit
+          FlickBuddy
         </Link>
         <Link
           href="/"
           className="rounded-full border border-cyan-200/30 bg-cyan-300/95 px-4 py-2 text-sm font-black text-black"
         >
-          Try FilmRabbit
+          Try FlickBuddy
         </Link>
       </div>
 
@@ -252,7 +252,7 @@ function IntroSlide({ list }: { list: PublicMovieList }) {
           </div>
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">
-              List created on FilmRabbit
+              List created on FlickBuddy
             </p>
             <p className="mt-1 text-sm font-semibold text-white/72">
               by {list.creator.name}

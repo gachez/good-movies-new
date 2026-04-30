@@ -16,7 +16,7 @@ function buildIntentPrompt(
       ? `Previous conversation:\n${history.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n")}\n\n`
       : "";
 
-  return `You are FilmRabbit, an expert movie recommendation AI. Your job is to understand what movies a user wants to watch.
+  return `You are FlickBuddy, an expert movie recommendation AI. Your job is to understand what movies a user wants to watch.
 
 ${historyText}User query: "${query}"
 
@@ -45,7 +45,7 @@ function buildRankPrompt(query: string, movies: TMDBMovie[]): string {
     genres: m.genres,
   }));
 
-  return `You are FilmRabbit, an expert movie curator. The user asked: "${query}"
+  return `You are FlickBuddy, an expert movie curator. The user asked: "${query}"
 
 Here are candidate movies from TMDB:
 ${JSON.stringify(movieList, null, 2)}

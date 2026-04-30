@@ -7,7 +7,7 @@ import { Bookmark, Heart, MessageCircle, Send, Star } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { AuthNudge } from "@/components/auth/AuthNudge";
 import { BackButton } from "@/components/BackButton";
-import { FilmRabbitLoader } from "@/components/FilmRabbitLoader";
+import { FlickBuddyLoader } from "@/components/FlickBuddyLoader";
 import { ListSelectionModal } from "@/components/ListSelectionModal";
 import { authClient } from "@/lib/auth-client";
 import { Movie } from "@/types/movie";
@@ -56,7 +56,7 @@ export default function MovieSharePage() {
     try {
       const result = await shareOrCopy({
         title: movie.title,
-        text: `I found ${movie.title} on FilmRabbit.`,
+        text: `I found ${movie.title} on FlickBuddy.`,
         url,
       });
       if (result === "copied") toast.success("Share link copied.");
@@ -99,9 +99,9 @@ export default function MovieSharePage() {
   if (isLoading) {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[#05080b] px-6 text-white">
-        <FilmRabbitLoader
+        <FlickBuddyLoader
           title="Loading this pick..."
-          message="FilmRabbit is pulling the trailer, details, and taste context into view."
+          message="FlickBuddy is pulling the trailer, details, and taste context into view."
         />
       </main>
     );

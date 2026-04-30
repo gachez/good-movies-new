@@ -68,9 +68,9 @@ export default function ProfilePage() {
   const [isListsLoading, setIsListsLoading] = useState(false);
   const session = authClient.useSession();
   const currentUser = session.data?.user;
-  const displayName = currentUser?.name || "Your FilmRabbit";
+  const displayName = currentUser?.name || "Your FlickBuddy";
   const displayHandle =
-    currentUser?.email || (currentUser ? "FilmRabbit member" : "Taste Profile");
+    currentUser?.email || (currentUser ? "FlickBuddy member" : "Taste Profile");
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -153,7 +153,7 @@ export default function ProfilePage() {
       <section className="mx-auto max-w-5xl px-4 pb-8 pt-5">
         <header className="flex items-center justify-between">
           <Link href="/" className="text-xl font-bold tracking-tight">
-            FilmRabbit
+            FlickBuddy
           </Link>
           <div className="flex items-center gap-2">
             {currentUser ? (
@@ -200,7 +200,7 @@ export default function ProfilePage() {
               <h1 className="mt-1 truncate text-3xl font-bold">{displayName}</h1>
               {currentUser && (
                 <p className="mt-1 text-sm font-semibold text-white/52">
-                  FilmRabbit profile
+                  FlickBuddy profile
                 </p>
               )}
               <div className="mt-4 grid grid-cols-3 gap-3 text-center">

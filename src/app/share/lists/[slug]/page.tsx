@@ -25,12 +25,12 @@ export async function generateMetadata({
     title: `${list.name} by ${list.creator.name}`,
     description:
       list.description ||
-      `A FilmRabbit list with ${list.movies.length} movies and series.`,
+      `A FlickBuddy list with ${list.movies.length} movies and series.`,
     openGraph: {
-      title: `${list.name} | FilmRabbit`,
+      title: `${list.name} | FlickBuddy`,
       description:
         list.description ||
-        `A FilmRabbit list with ${list.movies.length} movies and series.`,
+        `A FlickBuddy list with ${list.movies.length} movies and series.`,
       type: "website",
       images: list.movies[0]?.movie.backdrop_path
         ? [

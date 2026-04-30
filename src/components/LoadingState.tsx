@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThumbsUp, ThumbsDown, List, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { FilmRabbitLoader } from '@/components/FilmRabbitLoader';
+import { FlickBuddyLoader } from '@/components/FlickBuddyLoader';
 
 const movieQuotes = [
   "Here's looking at you, kid. - Casablanca",
@@ -93,9 +93,9 @@ export const LoadingState = ({ isLoading }: LoadingStateProps) => {
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#05080b]/92 text-white backdrop-blur-md"
         >
           <div className="mx-auto max-w-3xl px-6 text-center">
-            <FilmRabbitLoader
+            <FlickBuddyLoader
               size="lg"
-              title="FilmRabbit is searching..."
+              title="FlickBuddy is searching..."
               message="The more you interact, the better the rabbit gets at finding your perfect movies."
               className="mb-8"
             />
