@@ -2,7 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode, TouchEvent } from "react";
+import type {
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+  TouchEvent,
+} from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bookmark,
@@ -55,8 +59,46 @@ type RecommendationFeedback =
   | "not_available";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w780${path}`;
-const youtubeEmbedUrl = (key: string, muted: boolean) =>
-  `https://www.youtube.com/embed/${key}?autoplay=1&mute=${muted ? "1" : "0"}&playsinline=1&controls=0&loop=1&playlist=${key}&rel=0&modestbranding=1&enablejsapi=1`;
+const youtubeEmbedUrl = (key: string) =>
+  `https://www.youtube.com/embed/${key}?autoplay=1&mute=1&playsinline=1&controls=0&loop=1&playlist=${key}&rel=0&modestbranding=1&enablejsapi=1`;
+
+const DOUBLE_TAP_DELAY_MS = 300;
+const DOUBLE_TAP_DISTANCE_PX = 48;
+const TAP_MOVE_TOLERANCE_PX = 18;
+
+interface TapPoint {
+  x: number;
+  y: number;
+  time: number;
+}
+
+function getDistance(a: Pick<TapPoint, "x" | "y">, b: Pick<TapPoint, "x" | "y">) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function isInteractiveTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      "button,a,input,textarea,select,summary,[role='button'],[data-double-tap-ignore='true']"
+    )
+  );
+}
+
+function sendYouTubeCommand(
+  iframe: HTMLIFrameElement | null,
+  func: "mute" | "unMute" | "playVideo"
+) {
+  iframe?.contentWindow?.postMessage(
+    JSON.stringify({ event: "command", func, args: [] }),
+    "https://www.youtube.com"
+  );
+}
+
+function syncYouTubeAudio(iframe: HTMLIFrameElement | null, muted: boolean) {
+  sendYouTubeCommand(iframe, muted ? "mute" : "unMute");
+  sendYouTubeCommand(iframe, "playVideo");
+}
 
 function compactNumber(value: number) {
   return new Intl.NumberFormat("en", {
@@ -610,6 +652,11 @@ function MovieFeedItem({
 }) {
   const [isMuted, setIsMuted] = useState(true);
   const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
+  const [likeBurstKey, setLikeBurstKey] = useState(0);
+  const trailerRef = useRef<HTMLIFrameElement>(null);
+  const pointerStartRef = useRef<Pick<TapPoint, "x" | "y"> | null>(null);
+  const lastTapRef = useRef<TapPoint | null>(null);
+  const likeBurstTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const releaseYear = movie.release_date
     ? new Date(movie.release_date).getFullYear()
     : "Unknown";
@@ -619,10 +666,104 @@ function MovieFeedItem({
   useEffect(() => {
     setIsMuted(true);
     setIsOverviewExpanded(false);
+    setLikeBurstKey(0);
+    lastTapRef.current = null;
   }, [movie.id]);
 
+  useEffect(() => {
+    if (!isActive || !movie.trailerKey) return;
+    const timer = setTimeout(() => {
+      syncYouTubeAudio(trailerRef.current, isMuted);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [isActive, isMuted, movie.trailerKey]);
+
+  useEffect(() => {
+    return () => {
+      if (likeBurstTimeoutRef.current) {
+        clearTimeout(likeBurstTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const triggerLikeBurst = () => {
+    setLikeBurstKey((current) => current + 1);
+    if (likeBurstTimeoutRef.current) clearTimeout(likeBurstTimeoutRef.current);
+    likeBurstTimeoutRef.current = setTimeout(() => {
+      setLikeBurstKey(0);
+    }, 650);
+  };
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!event.isPrimary || isInteractiveTarget(event.target)) {
+      pointerStartRef.current = null;
+      return;
+    }
+
+    pointerStartRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handlePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!event.isPrimary || !pointerStartRef.current) {
+      return;
+    }
+
+    if (isInteractiveTarget(event.target)) {
+      pointerStartRef.current = null;
+      return;
+    }
+
+    const tapPoint = {
+      x: event.clientX,
+      y: event.clientY,
+      time: Date.now(),
+    };
+    const moveDistance = getDistance(pointerStartRef.current, tapPoint);
+    pointerStartRef.current = null;
+
+    if (moveDistance > TAP_MOVE_TOLERANCE_PX) return;
+
+    const lastTap = lastTapRef.current;
+    if (
+      lastTap &&
+      tapPoint.time - lastTap.time <= DOUBLE_TAP_DELAY_MS &&
+      getDistance(lastTap, tapPoint) <= DOUBLE_TAP_DISTANCE_PX
+    ) {
+      lastTapRef.current = null;
+      triggerLikeBurst();
+      trackEvent("movie_double_tapped", {
+        movie,
+        metadata: { source: "feed" },
+      });
+      onLike(movie);
+      return;
+    }
+
+    lastTapRef.current = tapPoint;
+  };
+
+  const handlePointerCancel = () => {
+    pointerStartRef.current = null;
+  };
+
+  const handleTrailerAudioToggle = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    syncYouTubeAudio(trailerRef.current, nextMuted);
+    trackEvent(nextMuted ? "trailer_muted" : "trailer_unmuted", {
+      movie,
+      metadata: { source: "feed" },
+    });
+  };
+
   return (
-    <article className="relative flex h-dvh snap-start snap-always flex-col justify-center overflow-hidden px-0 pb-0 pt-0 sm:px-4 sm:pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:pt-[calc(0.75rem+env(safe-area-inset-top))]">
+    <article
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      className="relative flex h-dvh snap-start snap-always flex-col justify-center overflow-hidden px-0 pb-0 pt-0 sm:px-4 sm:pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:pt-[calc(0.75rem+env(safe-area-inset-top))]"
+    >
       <div className="absolute inset-0 opacity-45 blur-3xl">
         <Image
           src={posterUrl(movie.poster_path)}
@@ -664,10 +805,12 @@ function MovieFeedItem({
               />
               <div className="absolute inset-0 bg-black/35 sm:hidden" />
               <iframe
+                ref={trailerRef}
                 title={`${movie.title} trailer`}
-                src={youtubeEmbedUrl(movie.trailerKey, isMuted)}
+                src={youtubeEmbedUrl(movie.trailerKey)}
                 allow="autoplay; encrypted-media; picture-in-picture"
                 allowFullScreen
+                onLoad={() => syncYouTubeAudio(trailerRef.current, isMuted)}
                 className="pointer-events-none absolute left-1/2 top-[42%] aspect-video w-[min(112vw,480px)] -translate-x-1/2 -translate-y-1/2 border-0 shadow-2xl shadow-black/70 sm:static sm:h-full sm:w-full sm:translate-x-0 sm:translate-y-0 sm:scale-125 sm:shadow-none"
               />
             </>
@@ -690,13 +833,8 @@ function MovieFeedItem({
           {movie.trailerKey && isActive && (
             <button
               type="button"
-              onClick={() => {
-                setIsMuted((current) => !current);
-                trackEvent(isMuted ? "trailer_unmuted" : "trailer_muted", {
-                  movie,
-                  metadata: { source: "feed" },
-                });
-              }}
+              onClick={handleTrailerAudioToggle}
+              aria-label={isMuted ? "Unmute trailer" : "Mute trailer"}
               className="absolute left-4 top-[calc(5rem+env(safe-area-inset-top))] flex items-center gap-2 rounded-full bg-black/65 px-3 py-2 text-xs font-bold text-white shadow-lg backdrop-blur transition hover:bg-black/80 sm:left-auto sm:right-3 sm:top-3"
             >
               {isMuted ? (
@@ -708,6 +846,16 @@ function MovieFeedItem({
             </button>
           )}
         </div>
+
+        {likeBurstKey > 0 && (
+          <div
+            key={likeBurstKey}
+            className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center"
+            aria-hidden="true"
+          >
+            <Heart className="animate-like-popup h-24 w-24 fill-cyan-200 text-cyan-200 drop-shadow-[0_8px_28px_rgba(0,0,0,0.7)]" />
+          </div>
+        )}
 
         <section className="absolute inset-x-0 bottom-[calc(5.4rem+env(safe-area-inset-bottom))] z-20 max-h-[42dvh] overflow-y-auto overscroll-contain px-4 pr-24 [scrollbar-width:none] [text-shadow:0_2px_8px_rgba(0,0,0,0.85)] sm:relative sm:inset-auto sm:min-h-0 sm:flex-1 sm:px-0 sm:pr-1 sm:[text-shadow:none] [&::-webkit-scrollbar]:hidden">
           <div className="mb-2 flex flex-wrap items-center gap-2">

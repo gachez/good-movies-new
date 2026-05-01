@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { PWARegister } from "@/components/PWARegister";
+import { PWASplashController } from "@/components/PWASplashController";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -76,8 +77,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} bg-[#05080b] antialiased`}
       >
+        <div id="pwa-launch-splash" role="status" aria-label="Opening FlickBuddy">
+          <div className="pwa-launch-splash__mark">
+            <img src="/icons/flickbuddy-192.png" alt="" width="96" height="96" />
+          </div>
+          <div className="pwa-launch-splash__brand">FlickBuddy</div>
+          <div className="pwa-launch-splash__bar" aria-hidden="true">
+            <span />
+          </div>
+        </div>
+        <PWASplashController />
         <PWARegister />
         <PWAInstallPrompt />
         {children}
