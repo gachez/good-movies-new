@@ -99,15 +99,10 @@ export function AuthNudge({
       <DialogContent className="border-white/10 bg-[#0b1116] text-white sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <Sparkles className="h-5 w-5 text-cyan-300" />
-            Save your movie taste
+            Create an account to unlock all features
           </DialogTitle>
         </DialogHeader>
 
-        <p className="text-sm leading-6 text-white/65">
-          Create an account to keep your liked movies, saved picks, shares, and
-          recommendation profile across devices.
-        </p>
 
         <div className="mt-2 grid grid-cols-2 rounded-md border border-white/10 bg-white/[0.03] p-1">
           <button

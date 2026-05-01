@@ -5,7 +5,7 @@ export default function AboutPage() {
   return (
     <main className="min-h-dvh bg-[#05080b] px-5 py-10 text-white">
       <section className="mx-auto max-w-3xl">
-        <BrandLink className="text-sm text-cyan-200" size={22} />
+        <BrandLink className="text-sm text-cyan-200" size={28} />
         <h1 className="mt-8 text-4xl font-black tracking-tight">
           About FlickBuddy
         </h1>
