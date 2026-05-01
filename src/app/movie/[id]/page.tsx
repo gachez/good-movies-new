@@ -2,8 +2,18 @@
 
 import Image from "next/image";
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Bookmark, Heart, MessageCircle, Send, Star } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Bookmark,
+  Heart,
+  MessageCircle,
+  Pause,
+  Play,
+  Send,
+  Star,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { AuthNudge } from "@/components/auth/AuthNudge";
 import { BackButton } from "@/components/BackButton";
@@ -17,7 +27,17 @@ import { shareOrCopy } from "@/utils/share";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w780${path}`;
 const youtubeEmbedUrl = (key: string) =>
-  `https://www.youtube.com/embed/${key}?autoplay=0&mute=0&playsinline=1&controls=1&rel=0&modestbranding=1`;
+  `https://www.youtube.com/embed/${key}?autoplay=0&mute=0&playsinline=1&controls=0&rel=0&enablejsapi=1&disablekb=1&fs=0`;
+
+function sendYouTubeCommand(
+  iframe: HTMLIFrameElement | null,
+  func: "mute" | "unMute" | "playVideo" | "pauseVideo"
+) {
+  iframe?.contentWindow?.postMessage(
+    JSON.stringify({ event: "command", func, args: [] }),
+    "https://www.youtube.com"
+  );
+}
 
 export default function MovieSharePage() {
   const params = useParams<{ id: string }>();
@@ -27,6 +47,10 @@ export default function MovieSharePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
   const [listPickerOpen, setListPickerOpen] = useState(false);
+  const [isTrailerReady, setIsTrailerReady] = useState(false);
+  const [isTrailerPlaying, setIsTrailerPlaying] = useState(false);
+  const [isTrailerMuted, setIsTrailerMuted] = useState(false);
+  const trailerRef = useRef<HTMLIFrameElement>(null);
   const session = authClient.useSession();
 
   useEffect(() => {
@@ -52,6 +76,27 @@ export default function MovieSharePage() {
 
     void loadMovie();
   }, [params.id, mediaType]);
+
+  useEffect(() => {
+    setIsTrailerReady(false);
+    setIsTrailerPlaying(false);
+    setIsTrailerMuted(false);
+  }, [movie?.trailerKey]);
+
+  const handleTrailerPlayToggle = () => {
+    const nextPlaying = !isTrailerPlaying;
+    sendYouTubeCommand(
+      trailerRef.current,
+      nextPlaying ? "playVideo" : "pauseVideo"
+    );
+    setIsTrailerPlaying(nextPlaying);
+  };
+
+  const handleTrailerMuteToggle = () => {
+    const nextMuted = !isTrailerMuted;
+    sendYouTubeCommand(trailerRef.current, nextMuted ? "mute" : "unMute");
+    setIsTrailerMuted(nextMuted);
+  };
 
   const handleShare = async () => {
     if (!movie) return;
@@ -144,13 +189,59 @@ export default function MovieSharePage() {
       <section className="mx-auto grid min-h-dvh max-w-6xl grid-cols-1 lg:grid-cols-[minmax(360px,520px)_1fr]">
         <div className="relative min-h-[68dvh] overflow-hidden bg-black lg:min-h-dvh">
           {movie.trailerKey ? (
-            <iframe
-              title={`${movie.title} trailer`}
-              src={youtubeEmbedUrl(movie.trailerKey)}
-              allow="autoplay; encrypted-media; picture-in-picture"
-              allowFullScreen
-              className="h-full min-h-[68dvh] w-full border-0 lg:min-h-dvh"
-            />
+            <>
+              <iframe
+                ref={trailerRef}
+                title={`${movie.title} trailer`}
+                src={youtubeEmbedUrl(movie.trailerKey)}
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+                onLoad={() => setIsTrailerReady(true)}
+                className="pointer-events-none h-full min-h-[68dvh] w-full border-0 lg:min-h-dvh"
+              />
+              {!isTrailerPlaying && (
+                <button
+                  type="button"
+                  onClick={handleTrailerPlayToggle}
+                  disabled={!isTrailerReady}
+                  aria-label="Play trailer"
+                  title="Play trailer"
+                  className="absolute left-1/2 top-1/2 z-10 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/65 text-white shadow-2xl backdrop-blur transition hover:scale-105 hover:bg-black/80 disabled:cursor-wait disabled:opacity-60"
+                >
+                  <Play className="ml-1 h-8 w-8 fill-white" />
+                </button>
+              )}
+              <div className="absolute bottom-5 left-5 z-10 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleTrailerPlayToggle}
+                  disabled={!isTrailerReady}
+                  aria-label={isTrailerPlaying ? "Pause trailer" : "Play trailer"}
+                  title={isTrailerPlaying ? "Pause trailer" : "Play trailer"}
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/65 text-white shadow-lg backdrop-blur transition hover:bg-black/80 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {isTrailerPlaying ? (
+                    <Pause className="h-5 w-5 fill-white" />
+                  ) : (
+                    <Play className="ml-0.5 h-5 w-5 fill-white" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTrailerMuteToggle}
+                  disabled={!isTrailerReady}
+                  aria-label={isTrailerMuted ? "Unmute trailer" : "Mute trailer"}
+                  title={isTrailerMuted ? "Unmute trailer" : "Mute trailer"}
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/65 text-white shadow-lg backdrop-blur transition hover:bg-black/80 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {isTrailerMuted ? (
+                    <VolumeX className="h-5 w-5" />
+                  ) : (
+                    <Volume2 className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
+            </>
           ) : (
             <Image
               src={posterUrl(movie.poster_path)}
