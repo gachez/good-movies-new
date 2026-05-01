@@ -105,6 +105,26 @@ function compactFeedBody(body: FeedRequestBody): FeedRequestBody {
   };
 }
 
+function uniqueNumbers(...arrays: Array<number[] | undefined>) {
+  return Array.from(new Set(arrays.flatMap((items) => items || [])));
+}
+
+function uniqueStrings(...arrays: Array<string[] | undefined>) {
+  return Array.from(new Set(arrays.flatMap((items) => items || [])));
+}
+
+function uniqueSeeds(...arrays: Array<MediaSeed[] | undefined>) {
+  const seeds = new Map<string, MediaSeed>();
+
+  arrays.forEach((items) => {
+    (items || []).forEach((seed) => {
+      seeds.set(`${seed.mediaType}:${seed.id}`, seed);
+    });
+  });
+
+  return Array.from(seeds.values());
+}
+
 function addCandidate(
   candidates: Map<string, Candidate>,
   movie: TMDBMovie,
@@ -379,19 +399,27 @@ export async function POST(request: NextRequest) {
   if (session) {
     const serverTaste = getUserTastePayload(session.user.id);
     body = {
-      likedMovieIds: serverTaste.likedMovieIds,
-      dislikedMovieIds: serverTaste.dislikedMovieIds,
-      savedMovieIds: serverTaste.savedMovieIds,
-      watchedMovieIds: serverTaste.watchedMovieIds,
-      likedSeeds: serverTaste.likedSeeds,
-      savedSeeds: serverTaste.savedSeeds,
-      likedGenres: serverTaste.likedGenres,
-      dislikedGenres: serverTaste.dislikedGenres,
-      excludeKeys: Array.from(
-        new Set([...(body.excludeKeys || []), ...serverTaste.excludeKeys])
+      likedMovieIds: uniqueNumbers(serverTaste.likedMovieIds, body.likedMovieIds),
+      dislikedMovieIds: uniqueNumbers(
+        serverTaste.dislikedMovieIds,
+        body.dislikedMovieIds
       ),
-      excludeMovieIds: Array.from(
-        new Set([...(body.excludeMovieIds || []), ...serverTaste.excludeMovieIds])
+      savedMovieIds: uniqueNumbers(serverTaste.savedMovieIds, body.savedMovieIds),
+      watchedMovieIds: uniqueNumbers(
+        serverTaste.watchedMovieIds,
+        body.watchedMovieIds
+      ),
+      likedSeeds: uniqueSeeds(serverTaste.likedSeeds, body.likedSeeds),
+      savedSeeds: uniqueSeeds(serverTaste.savedSeeds, body.savedSeeds),
+      likedGenres: uniqueStrings(serverTaste.likedGenres, body.likedGenres),
+      dislikedGenres: uniqueStrings(
+        serverTaste.dislikedGenres,
+        body.dislikedGenres
+      ),
+      excludeKeys: uniqueStrings(body.excludeKeys, serverTaste.excludeKeys),
+      excludeMovieIds: uniqueNumbers(
+        body.excludeMovieIds,
+        serverTaste.excludeMovieIds
       ),
       cursor: normalizeCursor(body.cursor),
       aiProfile: getStoredTasteProfile(session.user.id),
