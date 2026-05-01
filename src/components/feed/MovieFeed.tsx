@@ -65,11 +65,18 @@ const youtubeEmbedUrl = (key: string) =>
 const DOUBLE_TAP_DELAY_MS = 300;
 const DOUBLE_TAP_DISTANCE_PX = 48;
 const TAP_MOVE_TOLERANCE_PX = 18;
+const INITIAL_FEED_CURSOR_SPREAD = 20;
+const LOCAL_TASTE_SYNC_KEY_PREFIX = "flickbuddyTasteSyncedUser";
 
 interface TapPoint {
   x: number;
   y: number;
   time: number;
+}
+
+interface LocalTasteInteraction {
+  movie: Movie;
+  action: Extract<MovieInteractionAction, "like" | "dislike" | "save">;
 }
 
 function getDistance(a: Pick<TapPoint, "x" | "y">, b: Pick<TapPoint, "x" | "y">) {
@@ -181,6 +188,73 @@ function readTastePayload(): FeedTastePayload {
   };
 }
 
+function readLocalTasteInteractions() {
+  const interactions = new Map<string, LocalTasteInteraction>();
+  const listActions: Array<{
+    matches: (name: string) => boolean;
+    action: LocalTasteInteraction["action"];
+  }> = [
+    { matches: (name) => name.includes("Liked"), action: "like" },
+    { matches: (name) => name.includes("Saved"), action: "save" },
+    { matches: (name) => name.includes("Not my taste"), action: "dislike" },
+  ];
+
+  MovieStorage.getMovieLists().forEach((list) => {
+    const action = listActions.find(({ matches }) => matches(list.name))?.action;
+    if (!action) return;
+
+    list.movies.forEach((movie) => {
+      interactions.set(`${action}:${movieKey(movie)}`, { movie, action });
+    });
+  });
+
+  return Array.from(interactions.values()).slice(0, 120);
+}
+
+async function syncLocalTasteToAccount(userId: string) {
+  if (typeof window === "undefined") return false;
+
+  const syncKey = `${LOCAL_TASTE_SYNC_KEY_PREFIX}:${userId}`;
+  if (window.localStorage.getItem(syncKey) === "1") return false;
+
+  const interactions = readLocalTasteInteractions();
+  if (interactions.length === 0) {
+    window.localStorage.setItem(syncKey, "1");
+    return false;
+  }
+
+  const results = await Promise.allSettled(
+    interactions.map(({ movie, action }) =>
+      fetch("/api/interactions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-flickbuddy-client-id": getClientId(),
+        },
+        body: JSON.stringify({ movie, action }),
+      })
+    )
+  );
+  const syncedCount = results.filter(
+    (result) => result.status === "fulfilled" && result.value.ok
+  ).length;
+
+  if (syncedCount === interactions.length) {
+    window.localStorage.setItem(syncKey, "1");
+  }
+
+  if (syncedCount > 0) {
+    trackEvent("local_taste_synced", {
+      metadata: {
+        syncedCount,
+        attemptedCount: interactions.length,
+      },
+    });
+  }
+
+  return syncedCount > 0;
+}
+
 export function MovieFeed() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -200,10 +274,12 @@ export function MovieFeed() {
   const moviesLengthRef = useRef(0);
   const touchStartYRef = useRef<number | null>(null);
   const aiRefreshRef = useRef(false);
+  const syncedUserRef = useRef<string | null>(null);
   const session = authClient.useSession();
 
   const activeMovie = movies[activeIndex];
   const isAuthed = !!session.data?.user;
+  const userId = session.data?.user?.id;
 
   useEffect(() => {
     moviesLengthRef.current = movies.length;
@@ -214,13 +290,15 @@ export function MovieFeed() {
     isLoadingRef.current = true;
 
     try {
+      const cursor = append
+        ? cursorRef.current
+        : Math.floor(Math.random() * INITIAL_FEED_CURSOR_SPREAD);
       if (!append) {
         setIsLoading(true);
         shownKeysRef.current = new Set();
-        cursorRef.current = 0;
+        cursorRef.current = cursor;
       }
       const payload = readTastePayload();
-      const cursor = append ? cursorRef.current : 0;
       const response = await fetch("/api/feed", {
         method: "POST",
         headers: {
@@ -326,6 +404,22 @@ export function MovieFeed() {
     if (!isAuthed) return;
     void refreshAIProfile(false);
   }, [isAuthed, refreshAIProfile]);
+
+  useEffect(() => {
+    if (!userId || syncedUserRef.current === userId) return;
+    syncedUserRef.current = userId;
+
+    void syncLocalTasteToAccount(userId)
+      .then((synced) => {
+        if (!synced) return;
+        void loadFeed(false);
+        void refreshAIProfile(true);
+      })
+      .catch((error) => {
+        console.error("Local taste sync failed", error);
+        syncedUserRef.current = null;
+      });
+  }, [loadFeed, refreshAIProfile, userId]);
 
   const handleScroll = () => {
     const container = scrollRef.current;
