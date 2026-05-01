@@ -23,7 +23,7 @@ import { getUserTastePayload } from "@/lib/user-movies";
 
 export const runtime = "nodejs";
 
-type DiscoverMode = "smart" | "mood" | "genre" | "series";
+type DiscoverMode = "smart" | "movie" | "mood" | "genre" | "series";
 type MediaPreference = "all" | "movie" | "tv";
 
 interface DiscoverIntent {
@@ -145,6 +145,21 @@ function decorateMovie(
   };
 }
 
+function qualityPriorityScore(movie: TMDBMovie) {
+  const rating = Number.isFinite(movie.vote_average) ? movie.vote_average : 0;
+  const votes = Number.isFinite(movie.vote_count) ? movie.vote_count : 0;
+  const confidence = Math.min(Math.log10(votes + 1) / 3, 1);
+  const ratingScore = rating * 10 * confidence;
+  const supportScore = Math.min(Math.log10(votes + 1) * 6, 18);
+  const popularityScore = Math.min(movie.popularity / 12, 12);
+
+  return Math.min(ratingScore + supportScore + popularityScore, 100);
+}
+
+function ratingTieBreaker(movie: TMDBMovie) {
+  return qualityPriorityScore(movie) + Math.min(movie.popularity / 10, 10);
+}
+
 function sanitizeList(values: unknown, limit: number) {
   if (!Array.isArray(values)) return [];
   return values
@@ -156,6 +171,7 @@ function sanitizeList(values: unknown, limit: number) {
 
 function normalizeMediaPreference(value: unknown, mode: DiscoverMode): MediaPreference {
   if (mode === "series") return "tv";
+  if (mode === "movie") return "movie";
   if (value === "movie" || value === "tv" || value === "all") return value;
   return "all";
 }
@@ -314,9 +330,16 @@ function preScoreCandidate(
 ) {
   let score = 0;
   const genres = new Set(movie.genres.map((genre) => genre.toLowerCase()));
+  const rating = movie.vote_average || 0;
+  const votes = movie.vote_count || 0;
 
-  score += Math.min(movie.popularity / 20, 18);
-  score += Math.min(movie.vote_average, 10);
+  score += Math.min(movie.popularity / 24, 14);
+  score += qualityPriorityScore(movie) * 0.34;
+
+  if (rating >= 8 && votes >= 100) score += 14;
+  else if (rating >= 7.2 && votes >= 80) score += 9;
+  else if (rating < 6 && votes >= 50) score -= 16;
+  if (votes < 20) score -= 10;
 
   for (const genre of intent.genres) {
     if (genres.has(genre.toLowerCase())) score += 12;
@@ -350,11 +373,19 @@ async function getGenreCandidates(intent: DiscoverIntent) {
   const movieRequests =
     intent.mediaType === "tv"
       ? []
-      : [discoverMoviesByGenres(genreIds, 1), discoverMoviesByGenres(genreIds, 2)];
+      : [
+          discoverMoviesByGenres(genreIds, 1, "popularity.desc", 80),
+          discoverMoviesByGenres(genreIds, 1, "vote_average.desc", 180),
+          discoverMoviesByGenres(genreIds, 2, "popularity.desc", 80),
+        ];
   const tvRequests =
     intent.mediaType === "movie"
       ? []
-      : [discoverTVByGenres(genreIds, 1), discoverTVByGenres(genreIds, 2)];
+      : [
+          discoverTVByGenres(genreIds, 1, "popularity.desc", 80),
+          discoverTVByGenres(genreIds, 1, "vote_average.desc", 120),
+          discoverTVByGenres(genreIds, 2, "popularity.desc", 80),
+        ];
 
   const batches = await Promise.all([...movieRequests, ...tvRequests]);
   return batches.flat();
@@ -450,7 +481,7 @@ ${tasteText}
 Candidate movies and series from TMDB, including synopsis and up to ${MAX_REVIEWS_PER_CANDIDATE} review snippets each:
 ${JSON.stringify(candidateList, null, 2)}
 
-Choose the best 12-20 candidates that genuinely fit the request. Use the synopsis, genres, and reviews. Penalize candidates that only match a word but not the meaning. Do not invent titles and only use candidate keys.
+Choose the best 12-20 candidates that genuinely fit the request. Use the synopsis, genres, ratings, vote counts, popularity, and reviews. Prioritize well-rated movies/series with enough votes when relevance is similar. Penalize candidates that only match a word but not the meaning, very low-rated candidates, and titles with thin vote support unless they are an unusually strong fit. Do not invent titles and only use candidate keys.
 
 Respond with ONLY valid JSON:
 {
@@ -496,6 +527,8 @@ async function rankCandidates(
       .slice(0, 20)
       .map((item, index) => {
         const movie = candidateMap.get(item.key)!;
+        const qualityScore = qualityPriorityScore(movie);
+        const aiScore = Math.min(Math.max(Math.round(item.relevanceScore), 1), 100);
         return {
           ...decorateMovie(
             movie,
@@ -505,13 +538,18 @@ async function rankCandidates(
             item.highlightedThemes || [],
             item.caveat || undefined
           ),
-          relevanceScore: Math.min(Math.max(Math.round(item.relevanceScore), 1), 100),
+          relevanceScore: Math.round(aiScore * 0.72 + qualityScore * 0.28),
         };
-      });
+      })
+      .sort(
+        (a, b) =>
+          b.relevanceScore - a.relevanceScore ||
+          ratingTieBreaker(b) - ratingTieBreaker(a)
+      );
   } catch {
     return candidates
       .map(({ movie }) => movie)
-      .sort((a, b) => b.popularity - a.popularity)
+      .sort((a, b) => ratingTieBreaker(b) - ratingTieBreaker(a))
       .slice(0, 20)
       .map((movie, index) =>
         decorateMovie(
@@ -635,7 +673,10 @@ export async function GET(request: NextRequest) {
       score: titleMatchScore(query, movie),
     }))
     .filter((item) => item.score >= 70)
-    .sort((a, b) => b.score - a.score || b.movie.popularity - a.movie.popularity)
+    .sort(
+      (a, b) =>
+        b.score - a.score || ratingTieBreaker(b.movie) - ratingTieBreaker(a.movie)
+    )
     .slice(0, 8)
     .map((item, index) =>
       decorateMovie(
@@ -661,6 +702,7 @@ export async function GET(request: NextRequest) {
       const key = `${movie.mediaType || "movie"}:${movie.id}`;
       return !taste?.dislikedMovieIds.includes(movie.id) && !taste?.excludeKeys?.includes(key);
     })
+    .filter((movie) => movie.vote_count >= 20 || movie.popularity >= 12)
     .map((movie) => ({
       movie,
       score: preScoreCandidate(movie, intent, taste, titleKeys),

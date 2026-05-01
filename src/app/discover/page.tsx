@@ -10,7 +10,6 @@ import {
   useState,
 } from "react";
 import {
-  Bot,
   Film,
   Loader2,
   Search,
@@ -21,7 +20,7 @@ import { AppNav } from "@/components/AppNav";
 import { BrandLink, BrandLogo } from "@/components/BrandLogo";
 import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { Movie } from "@/types/movie";
-import { getClientId, sendFeedback, trackEvent } from "@/utils/analytics";
+import { getClientId, trackEvent } from "@/utils/analytics";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w500${path}`;
 
@@ -43,7 +42,9 @@ const refinePrompts = [
 ];
 
 const modes = [
-  { label: "Smart", value: "smart" },
+  { label: "Best", value: "smart" },
+  { label: "Movies", value: "movie" },
+  { label: "Series", value: "series" },
 ] as const;
 
 type DiscoverMode = (typeof modes)[number]["value"];
@@ -158,7 +159,6 @@ export default function DiscoverPage() {
     const nextMode = prompt.toLowerCase().includes("show") ? "series" : "smart";
     setActivePrompt(prompt);
     setDraft("");
-    //@ts-ignore
     setMode(nextMode);
     setSubmittedQuery(prompt);
     trackEvent("discover_prompt_used", {
@@ -172,7 +172,6 @@ export default function DiscoverPage() {
       : refinement;
     setDraft("");
     setSubmittedQuery(nextQuery);
-    //@ts-ignore
     if (refinement === "Only series") setMode("series");
     trackEvent("discover_refine_chip_used", {
       metadata: { refinement, query: nextQuery },
@@ -182,7 +181,7 @@ export default function DiscoverPage() {
   return (
     <main
       className={`min-h-dvh bg-[#06090c] text-white ${
-        hasQuery ? "pb-64" : "pb-24"
+        hasQuery ? "pb-44" : "pb-24"
       }`}
     >
 
@@ -205,11 +204,9 @@ export default function DiscoverPage() {
           {!hasQuery && (
             <div className="py-8 sm:py-12">
               <h1 className="mt-4 max-w-3xl text-4xl font-black leading-tight sm:text-6xl">
-                What should we watch?
+                Discover movies and series with FlickBuddy
               </h1>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-white/58 sm:text-lg">
-                Describe what you want to watch in your own words, and let FlickBuddy find the perfect movies or series for you.
-              </p>
+           
             </div>
           )}
 
@@ -239,34 +236,30 @@ export default function DiscoverPage() {
         ) : error ? (
           <ErrorState message={error} />
         ) : hasQuery ? (
-          <div className="space-y-7">
-            <ConversationPanel
-              query={submittedQuery}
-              interpretedQuery={interpretedQuery}
-              titleMatches={titleMatches}
-              onRefine={handleRefine}
-            />
+          <div className="space-y-6">
+            {discoveryMatches.length > 0 ? (
+              <RecommendationList movies={discoveryMatches} query={submittedQuery} />
+            ) : (
+              <EmptyState />
+            )}
 
             {titleMatches.length > 0 && (
               <CompactTitleMatches movies={titleMatches} />
             )}
 
-            {discoveryMatches.length > 0 ? (
-              <RecommendationList movies={discoveryMatches} />
-            ) : (
-              <EmptyState />
-            )}
+            <SearchContextPanel
+              query={submittedQuery}
+              interpretedQuery={interpretedQuery}
+            />
           </div>
         ) : null}
       </section>
 
-      {hasQuery && (
+      {hasQuery && !isLoading && (
         <BottomComposer
           draft={draft}
-          mode={mode}
           isLoading={isLoading}
           onDraftChange={setDraft}
-          onModeChange={setMode}
           onSubmit={handleRefinementSubmit}
           onRefine={handleRefine}
         />
@@ -327,7 +320,7 @@ function Composer({
         <textarea
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
-          placeholder="Describe a movie or series in plain language..."
+          placeholder="e.g Slow burn crime mystery with a smart lead"
           rows={3}
           className="min-h-24 flex-1 resize-none bg-transparent text-base font-medium leading-7 text-white outline-none placeholder:text-white/38 sm:text-lg"
         />
@@ -370,18 +363,14 @@ function Composer({
 
 function BottomComposer({
   draft,
-  mode,
   isLoading,
   onDraftChange,
-  onModeChange,
   onSubmit,
   onRefine,
 }: {
   draft: string;
-  mode: DiscoverMode;
   isLoading: boolean;
   onDraftChange: (value: string) => void;
-  onModeChange: (value: DiscoverMode) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRefine: (value: string) => void;
 }) {
@@ -393,9 +382,9 @@ function BottomComposer({
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-24 z-50 px-3">
-      <div className="mx-auto max-w-3xl rounded-md border border-cyan-300/20 bg-[#071118]/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-xl">
-        <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+    <div className="fixed inset-x-0 bottom-20 z-50 px-3">
+      <div className="mx-auto max-w-3xl rounded-md border border-cyan-300/20 bg-[#071118]/95 p-2 shadow-2xl shadow-black/60 backdrop-blur-xl">
+        <div className="mb-2 flex gap-2 overflow-x-auto">
           {refinePrompts.map((prompt) => (
             <button
               key={prompt}
@@ -411,7 +400,6 @@ function BottomComposer({
 
         <form onSubmit={onSubmit} className="flex items-end gap-2">
           <label className="flex min-h-11 flex-1 items-start gap-2 rounded-md border border-white/10 bg-black/25 px-3 py-2 focus-within:border-cyan-300/60">
-            <Bot className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
             <textarea
               value={draft}
               onChange={(event) => onDraftChange(event.target.value)}
@@ -435,94 +423,56 @@ function BottomComposer({
             )}
           </button>
         </form>
-
-        <div className="mt-2 flex gap-1 overflow-x-auto">
-          {modes.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => onModeChange(item.value)}
-              disabled={isLoading}
-              className={`shrink-0 rounded-md px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] transition ${
-                mode === item.value
-                  ? "bg-cyan-300 text-black"
-                  : "bg-white/[0.05] text-white/55 hover:text-white"
-              } disabled:cursor-not-allowed disabled:opacity-50`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   );
 }
 
-function ConversationPanel({
+function SearchContextPanel({
   query,
   interpretedQuery,
-  titleMatches,
-  onRefine,
 }: {
   query: string;
   interpretedQuery: DiscoverResponse["interpretedQuery"];
-  titleMatches: Movie[];
-  onRefine: (value: string) => void;
 }) {
   const tags = [
     ...(interpretedQuery?.searchTerms || []),
     ...(interpretedQuery?.referenceTitles || []),
-  ].slice(0, 7);
+  ].slice(0, 5);
 
   return (
-    <div className="space-y-3">
-      <div className="ml-auto max-w-[88%] rounded-md bg-cyan-300 px-4 py-3 text-sm font-bold leading-6 text-black sm:max-w-[70%]">
-        {query}
-      </div>
-
-      <div className="max-w-3xl rounded-md border border-white/10 bg-white/[0.045] p-4">
-        <div className="flex items-center gap-2 text-sm font-bold text-cyan-200">
+    <section className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-cyan-200">
+            <BrandLogo size={16} />
+            Search context
+          </div>
+          <p className="mt-2 truncate text-sm font-bold text-white">{query}</p>
+          <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/58">
+            {interpretedQuery?.explanation ||
+              "A fresh discovery set ranked from current movie and series signals."}
+          </p>
+        </div>
+        <div className="hidden shrink-0 items-center gap-2 text-sm font-bold text-white/45 sm:flex">
           <BrandLogo size={18} />
           FlickBuddy
         </div>
-        <p className="mt-3 text-sm leading-6 text-white/75">
-          {interpretedQuery?.explanation ||
-            "I pulled a fresh discovery set from what is trending right now."}
-        </p>
+      </div>
 
-        {tags.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-white/62"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {titleMatches.length > 0 && (
-          <p className="mt-4 text-xs leading-5 text-white/45">
-            I found possible exact titles too, so they are separated from the
-            broader recommendations.
-          </p>
-        )}
-
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-          {refinePrompts.map((prompt) => (
-            <button
-              key={prompt}
-              onClick={() => onRefine(prompt)}
-              className="shrink-0 rounded-full border border-white/12 bg-white/[0.04] px-3 py-2 text-xs font-bold text-white/70"
+      {tags.length > 0 && (
+        <div className="mt-3 flex gap-2 overflow-x-auto">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="shrink-0 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-white/54"
             >
-              {prompt}
-            </button>
+              {tag}
+            </span>
           ))}
         </div>
-      </div>
-    </div>
+      )}
+    </section>
   );
 }
 
@@ -582,19 +532,21 @@ function MoviePill({ movie }: { movie: Movie }) {
   );
 }
 
-function RecommendationList({ movies }: { movies: Movie[] }) {
+function RecommendationList({ movies, query }: { movies: Movie[]; query: string }) {
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between">
-        <div>
+      <div className="mb-4 flex items-end justify-between gap-3">
+        <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">
             Recommended
           </p>
-          <h2 className="mt-1 text-xl font-bold">Best matches</h2>
+          <h2 className="mt-1 truncate text-2xl font-black">
+            Best matches found
+          </h2>
         </div>
         <Film className="h-5 w-5 text-white/45" />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {movies.map((movie, index) => (
           <RecommendationCard
             key={`${movie.mediaType || "movie"}-${movie.id}`}
@@ -608,30 +560,9 @@ function RecommendationList({ movies }: { movies: Movie[] }) {
 }
 
 function RecommendationCard({ movie, rank }: { movie: Movie; rank: number }) {
-  const [feedbackSent, setFeedbackSent] = useState("");
   const year = getMovieYear(movie);
   const reason = movie.matchReason || movie.feedReason || movie.overview;
   const movieHref = `/movie/${movie.id}?type=${movie.mediaType === "tv" ? "tv" : "movie"}`;
-
-  const handleFeedback = (
-    feedback: "good_pick" | "bad_pick" | "already_watched"
-  ) => {
-    setFeedbackSent(feedback);
-    sendFeedback({
-      movie,
-      feedback,
-      source: "discover",
-      metadata: {
-        rank,
-        title: movie.title,
-        relevanceScore: movie.relevanceScore,
-      },
-    });
-    trackEvent("recommendation_feedback", {
-      movie,
-      metadata: { feedback, source: "discover", rank },
-    });
-  };
 
   return (
     <article className="overflow-hidden rounded-md border border-white/10 bg-white/[0.045] transition hover:border-cyan-300/40">
@@ -645,37 +576,36 @@ function RecommendationCard({ movie, rank }: { movie: Movie; rank: number }) {
         }
         className="group block"
       >
-        <div className="relative aspect-[16/10] bg-white/[0.04]">
+        <div className="relative aspect-[2/3] bg-white/[0.04]">
           <Image
-            src={posterUrl(movie.backdrop_path || movie.poster_path)}
+            src={posterUrl(movie.poster_path || movie.backdrop_path)}
             alt={movie.title}
             fill
-            sizes="(min-width: 1280px) 30vw, (min-width: 640px) 50vw, 100vw"
+            sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
             className="object-cover transition duration-300 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
-          <div className="absolute left-3 top-3 rounded-md bg-cyan-300 px-2 py-1 text-xs font-black text-black">
+          <div className="absolute left-2 top-2 rounded-md bg-cyan-300 px-2 py-1 text-xs font-black text-black">
             #{rank}
           </div>
-          <div className="absolute bottom-3 left-3 right-3">
-            <p className="line-clamp-2 text-lg font-black leading-tight">
-              {movie.title}
-            </p>
-            <p className="mt-1 text-xs font-bold text-white/60">
-              {movie.mediaType === "tv" ? "Series" : "Movie"}
-              {year ? ` / ${year}` : ""} / {movie.vote_average.toFixed(1)}
-            </p>
+          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/70 px-2 py-1 text-xs font-black text-white backdrop-blur">
+            <Star className="h-3 w-3 fill-yellow-300 text-yellow-300" />
+            {movie.vote_average.toFixed(1)}
           </div>
         </div>
-        <div className="p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-200">
-            Why this fits
+        <div className="p-3">
+          <p className="line-clamp-2 min-h-10 font-black leading-5 text-white">
+            {movie.title}
           </p>
-          <p className="mt-2 line-clamp-3 text-sm leading-6 text-white/68">
+          <p className="mt-1 text-xs font-bold text-white/48">
+            {movie.mediaType === "tv" ? "Series" : "Movie"}
+            {year ? ` / ${year}` : ""}
+          </p>
+          <p className="mt-2 line-clamp-2 min-h-10 text-xs leading-5 text-white/62">
             {reason}
           </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {movie.genres.slice(0, 3).map((genre) => (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {movie.genres.slice(0, 2).map((genre) => (
               <span
                 key={genre}
                 className="rounded-full bg-black/24 px-2 py-1 text-[11px] font-bold text-white/55"
@@ -686,28 +616,6 @@ function RecommendationCard({ movie, rank }: { movie: Movie; rank: number }) {
           </div>
         </div>
       </Link>
-      <div className="flex gap-2 border-t border-white/8 p-3">
-        {[
-          ["good_pick", "Good"],
-          ["bad_pick", "Off"],
-          ["already_watched", "Seen"],
-        ].map(([feedback, label]) => (
-          <button
-            key={feedback}
-            type="button"
-            onClick={() =>
-              handleFeedback(feedback as "good_pick" | "bad_pick" | "already_watched")
-            }
-            className={`flex-1 rounded-sm border px-2 py-2 text-xs font-black uppercase tracking-[0.08em] transition ${
-              feedbackSent === feedback
-                ? "border-cyan-300 bg-cyan-300 text-black"
-                : "border-white/10 bg-black/20 text-white/60 hover:text-white"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
     </article>
   );
 }
@@ -722,7 +630,7 @@ function DiscoverLoadingState({ hasQuery }: { hasQuery: boolean }) {
             title={hasQuery ? "FlickBuddy is finding matches..." : "FlickBuddy is warming up..."}
             message={
               hasQuery
-                ? "The mascot is checking tone, story, and taste signals before ranking the best picks."
+                ? "I'm looking for something you will like."
                 : "Loading a fresh discovery pool so there is something good to start from."
             }
             className="sm:items-start sm:text-left"

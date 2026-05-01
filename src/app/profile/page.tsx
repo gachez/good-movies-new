@@ -5,11 +5,17 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   Bookmark,
+  ChevronRight,
   Clapperboard,
+  FileText,
   Grid3X3,
+  HelpCircle,
   List,
   Lock,
-  Sparkles,
+  LogOut,
+  Menu,
+  Settings,
+  ShieldCheck,
   Star,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
@@ -17,9 +23,19 @@ import { AppNav } from "@/components/AppNav";
 import { AuthNudge } from "@/components/auth/AuthNudge";
 import { BrandLink, BrandLogo } from "@/components/BrandLogo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import posthog from "posthog-js";
 import { authClient } from "@/lib/auth-client";
 import { Movie, MovieListItem } from "@/types/movie";
+import { listSessions } from "better-auth/api";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w500${path}`;
 
@@ -140,6 +156,13 @@ export default function ProfilePage() {
     setAuthOpen(true);
   };
 
+  const handleSignOut = async () => {
+    posthog.capture("user_signed_out");
+    posthog.reset();
+    await authClient.signOut();
+    await session.refetch();
+  };
+
   if (isSessionLoading) {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[#05080b] px-6 text-white">
@@ -173,7 +196,7 @@ export default function ProfilePage() {
             
               <div className="mt-7 grid gap-3 sm:grid-cols-3">
                 <ProfileBenefit title="Save taste" text="Keep likes, passes, and saves." />
-                <ProfileBenefit title="Tune picks" text="Improve your feed over time." />
+                <ProfileBenefit title="Better recommendations" text="Improve your feed over time." />
                 <ProfileBenefit title="Build lists" text="Create and share watchlists." />
               </div>
 
@@ -215,26 +238,11 @@ export default function ProfilePage() {
         <header className="flex items-center justify-between">
           <BrandLink className="text-xl" />
           <div className="flex items-center gap-2">
-            {currentUser ? (
-              <button
-                onClick={async () => {
-                  posthog.capture("user_signed_out");
-                  posthog.reset();
-                  await authClient.signOut();
-                  await session.refetch();
-                }}
-                className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold"
-              >
-                Log out
-              </button>
-            ) : (
-              <button
-                onClick={() => openAuth("signin")}
-                className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-bold text-black"
-              >
-                Log in
-              </button>
-            )}
+            <ProfileMenu
+              displayName={displayName}
+              displayHandle={displayHandle}
+              onSignOut={handleSignOut}
+            />
           </div>
         </header>
 
@@ -255,9 +263,6 @@ export default function ProfilePage() {
             </Avatar>
 
             <div className="min-w-0 flex-1">
-              <p className="text-sm uppercase tracking-[0.22em] text-cyan-300">
-                {displayHandle}
-              </p>
               <h1 className="mt-1 truncate text-3xl font-bold">{displayName}</h1>
               {currentUser && (
                 <p className="mt-1 text-sm font-semibold text-white/52">
@@ -267,15 +272,9 @@ export default function ProfilePage() {
               <div className="mt-4 grid grid-cols-3 gap-3 text-center">
                 <Stat label="liked" value={likedMovies.length} />
                 <Stat label="saved" value={savedMovies.length} />
-                <Stat label="signals" value={likedMovies.length + savedMovies.length} />
               </div>
             </div>
           </div>
-
-          <p className="mt-5 max-w-2xl text-sm leading-6 text-white/70">
-            Movies you like and save shape your recommendation feed. The more
-            you interact, the sharper this profile gets.
-          </p>
 
           <div className="mt-5 flex flex-wrap gap-2">
             {topGenres.length > 0 ? (
@@ -418,6 +417,112 @@ export default function ProfilePage() {
 
       <AppNav />
     </main>
+  );
+}
+
+function ProfileMenu({
+  displayName,
+  displayHandle,
+  onSignOut,
+}: {
+  displayName: string;
+  displayHandle: string;
+  onSignOut: () => Promise<void>;
+}) {
+  const menuItems = [
+    {
+      icon: Settings,
+      title: "Settings",
+      description: "Account, recommendations, and app preferences",
+      href: "/settings",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Privacy",
+      description: "How FlickBuddy handles your data",
+      href: "/privacy",
+    },
+    {
+      icon: FileText,
+      title: "Terms",
+      description: "Beta terms and acceptable use",
+      href: "/terms",
+    },
+    {
+      icon: HelpCircle,
+      title: "Contact support",
+      description: "Get help with your account or recommendations",
+      href: "/support",
+    },
+  ];
+
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white transition hover:border-cyan-300/35 hover:bg-cyan-300/10"
+          aria-label="Open profile menu"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+      </SheetTrigger>
+      <SheetContent className="w-full max-w-md border-white/10 bg-[#05080b] p-0 text-white sm:max-w-md">
+        <SheetHeader className="border-b border-white/10 px-5 pb-5 pt-6 text-left">
+          <SheetTitle className="text-2xl font-black text-white">
+            Settings and activity
+          </SheetTitle>
+          <SheetDescription className="text-sm text-white/55">
+            Manage your FlickBuddy account.
+          </SheetDescription>
+          <div className="mt-4 rounded-md border border-white/10 bg-white/[0.04] p-4">
+            <p className="truncate text-sm font-bold text-white">{displayName}</p>
+            <p className="mt-1 truncate text-xs text-white/48">{displayHandle}</p>
+          </div>
+        </SheetHeader>
+
+        <nav className="flex-1 overflow-y-auto px-3 py-3">
+          {menuItems.map((item) => (
+            <SheetClose asChild key={item.title}>
+              <Link
+                href={item.href}
+                className="group flex items-center gap-4 rounded-md px-3 py-4 text-left transition hover:bg-white/[0.05]"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.04] text-cyan-200">
+                  <item.icon className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-base font-bold text-white">
+                    {item.title}
+                  </span>
+                  <span className="mt-1 block text-sm leading-5 text-white/50">
+                    {item.description}
+                  </span>
+                </span>
+                <ChevronRight className="h-5 w-5 text-white/30 transition group-hover:text-white/60" />
+              </Link>
+            </SheetClose>
+          ))}
+        </nav>
+
+        <div className="border-t border-white/10 p-3">
+          <SheetClose asChild>
+            <button
+              type="button"
+              onClick={() => {
+                void onSignOut();
+              }}
+              className="flex w-full items-center gap-4 rounded-md px-3 py-4 text-left text-rose-300 transition hover:bg-rose-400/10"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-rose-300/20 bg-rose-300/10">
+                <LogOut className="h-5 w-5" />
+              </span>
+              <span className="text-base font-bold">Log out</span>
+            </button>
+          </SheetClose>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 

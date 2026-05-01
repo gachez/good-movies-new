@@ -284,7 +284,9 @@ export async function getPopularTV(page: number = 1): Promise<TMDBMovie[]> {
 
 export async function discoverMoviesByGenres(
   genreIds: number[],
-  page: number = 1
+  page: number = 1,
+  sortBy: string = "popularity.desc",
+  minVoteCount: number = 80
 ): Promise<TMDBMovie[]> {
   if (genreIds.length === 0) return [];
 
@@ -292,8 +294,9 @@ export async function discoverMoviesByGenres(
     "/discover/movie",
     {
       include_adult: false,
-      sort_by: "popularity.desc",
+      sort_by: sortBy,
       with_genres: genreIds.slice(0, 4).join("|"),
+      "vote_count.gte": minVoteCount,
       page,
     }
   );
@@ -303,14 +306,17 @@ export async function discoverMoviesByGenres(
 
 export async function discoverTVByGenres(
   genreIds: number[],
-  page: number = 1
+  page: number = 1,
+  sortBy: string = "popularity.desc",
+  minVoteCount: number = 80
 ): Promise<TMDBMovie[]> {
   if (genreIds.length === 0) return [];
 
   const data = await fetchTMDB<TMDBListResponse<TMDBTVResult>>("/discover/tv", {
     include_adult: false,
-    sort_by: "popularity.desc",
+    sort_by: sortBy,
     with_genres: genreIds.slice(0, 4).join("|"),
+    "vote_count.gte": minVoteCount,
     page,
   });
 
