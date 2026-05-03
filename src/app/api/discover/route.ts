@@ -19,6 +19,10 @@ import {
   TMDBMovie,
   TMDBMovieReview,
 } from "@/lib/tmdb";
+import {
+  getUserAvoidPreferences,
+  mergeAvoidPreferences,
+} from "@/lib/taste-preferences";
 import { getUserTastePayload } from "@/lib/user-movies";
 
 export const runtime = "nodejs";
@@ -46,6 +50,8 @@ interface UserTastePayload {
   excludeKeys?: string[];
   likedGenres: string[];
   dislikedGenres: string[];
+  avoidedGenres: string[];
+  avoidTerms: string[];
   excludeMovieIds: number[];
 }
 
@@ -169,6 +175,82 @@ function sanitizeList(values: unknown, limit: number) {
     .slice(0, limit);
 }
 
+function emptyTaste(): UserTastePayload {
+  return {
+    likedMovieIds: [],
+    dislikedMovieIds: [],
+    savedMovieIds: [],
+    watchedMovieIds: [],
+    excludeKeys: [],
+    likedGenres: [],
+    dislikedGenres: [],
+    avoidedGenres: [],
+    avoidTerms: [],
+    excludeMovieIds: [],
+  };
+}
+
+function getRequestAvoids(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  return mergeAvoidPreferences({
+    genres: searchParams.getAll("avoidGenre"),
+    terms: searchParams.getAll("avoidTerm"),
+  });
+}
+
+function withAvoids(
+  taste: UserTastePayload | null,
+  avoids: { genres: string[]; terms: string[] }
+): UserTastePayload | null {
+  if (!taste && avoids.genres.length === 0 && avoids.terms.length === 0) {
+    return null;
+  }
+
+  const nextTaste = taste || emptyTaste();
+  const merged = mergeAvoidPreferences(
+    {
+      genres: nextTaste.avoidedGenres,
+      terms: nextTaste.avoidTerms,
+    },
+    avoids
+  );
+
+  return {
+    ...nextTaste,
+    avoidedGenres: merged.genres,
+    avoidTerms: merged.terms,
+  };
+}
+
+function movieText(movie: TMDBMovie) {
+  return [
+    movie.title,
+    movie.original_title,
+    movie.overview,
+    movie.genres.join(" "),
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function matchesAvoidPreferences(
+  movie: TMDBMovie,
+  taste: UserTastePayload | null
+) {
+  if (!taste) return false;
+
+  const avoidedGenres = new Set(taste.avoidedGenres || []);
+  if (movie.genres.some((genre) => avoidedGenres.has(genre))) return true;
+
+  const terms = (taste.avoidTerms || [])
+    .map((term) => term.toLowerCase().trim())
+    .filter((term) => term.length >= 2);
+  if (terms.length === 0) return false;
+
+  const searchable = movieText(movie);
+  return terms.some((term) => searchable.includes(term));
+}
+
 function normalizeMediaPreference(value: unknown, mode: DiscoverMode): MediaPreference {
   if (mode === "series") return "tv";
   if (mode === "movie") return "movie";
@@ -237,6 +319,8 @@ function buildIntentPrompt(query: string, mode: DiscoverMode, taste: UserTastePa
     ? `\nUser taste signals from server-side interactions:
 - liked genres: ${taste.likedGenres.slice(0, 8).join(", ") || "none yet"}
 - disliked genres: ${taste.dislikedGenres.slice(0, 8).join(", ") || "none yet"}
+- avoided genres: ${taste.avoidedGenres.slice(0, 8).join(", ") || "none set"}
+- avoided titles/themes: ${taste.avoidTerms.slice(0, 8).join(", ") || "none set"}
 Use these as soft preferences only. The user's current request is more important.\n`
     : "";
 
@@ -354,6 +438,12 @@ function preScoreCandidate(
     for (const genre of taste.dislikedGenres) {
       if (genres.has(genre.toLowerCase())) score -= 10;
     }
+    for (const genre of taste.avoidedGenres) {
+      if (genres.has(genre.toLowerCase())) score -= 34;
+    }
+    if (matchesAvoidPreferences(movie, taste)) {
+      score -= 60;
+    }
     const key = `${movie.mediaType || "movie"}:${movie.id}`;
     if (taste.dislikedMovieIds.includes(movie.id) || taste.excludeKeys?.includes(key)) {
       score -= 50;
@@ -468,6 +558,8 @@ function buildRankPrompt({
     ? `\nPersonalization signals:
 - liked genres: ${taste.likedGenres.slice(0, 8).join(", ") || "none yet"}
 - disliked genres: ${taste.dislikedGenres.slice(0, 8).join(", ") || "none yet"}
+- avoided genres: ${taste.avoidedGenres.slice(0, 8).join(", ") || "none set"}
+- avoided titles/themes: ${taste.avoidTerms.slice(0, 8).join(", ") || "none set"}
 Do not recommend exact titles the user already liked, saved, disliked, or watched unless they are exact title matches.`
     : "";
 
@@ -592,9 +684,22 @@ function checkRateLimit(key: string, limit: number) {
 async function getServerTaste(request: NextRequest): Promise<ServerTasteContext> {
   await ensureBackendReady();
   const session = await auth.api.getSession({ headers: request.headers });
-  return session
-    ? { userId: session.user.id, taste: getUserTastePayload(session.user.id) }
-    : { userId: null, taste: null };
+  const requestAvoids = getRequestAvoids(request);
+
+  if (!session) {
+    return {
+      userId: null,
+      taste: withAvoids(null, requestAvoids),
+    };
+  }
+
+  const serverAvoids = getUserAvoidPreferences(session.user.id);
+  const avoids = mergeAvoidPreferences(serverAvoids, requestAvoids);
+
+  return {
+    userId: session.user.id,
+    taste: withAvoids(getUserTastePayload(session.user.id), avoids),
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -623,7 +728,11 @@ export async function GET(request: NextRequest) {
       .filter((movie) => movie.poster_path && !movie.adult)
       .filter((movie) => {
         const key = `${movie.mediaType || "movie"}:${movie.id}`;
-        return !taste?.excludeMovieIds.includes(movie.id) && !taste?.excludeKeys?.includes(key);
+        return (
+          !taste?.excludeMovieIds.includes(movie.id) &&
+          !taste?.excludeKeys?.includes(key) &&
+          !matchesAvoidPreferences(movie, taste)
+        );
       })
       .slice(0, 30)
       .map((movie, index) =>
@@ -646,6 +755,20 @@ export async function GET(request: NextRequest) {
   });
 
   if (!betaLimit.allowed) {
+    if (!userId) {
+      return NextResponse.json(
+        {
+          error:
+            "Create a free account to keep using AI discovery.",
+          code: "AUTH_REQUIRED",
+        },
+        {
+          status: 401,
+          headers: betaLimitHeaders(betaLimit),
+        }
+      );
+    }
+
     return NextResponse.json(
       {
         error:
@@ -668,6 +791,7 @@ export async function GET(request: NextRequest) {
   const titleMatches = rawTitleMatches
     .filter((movie) => movie.poster_path && !movie.adult)
     .filter((movie) => matchesMediaPreference(movie, intent.mediaType))
+    .filter((movie) => !matchesAvoidPreferences(movie, taste))
     .map((movie) => ({
       movie,
       score: titleMatchScore(query, movie),
@@ -700,7 +824,11 @@ export async function GET(request: NextRequest) {
     .filter((movie) => !titleKeys.has(`${movie.mediaType || "movie"}:${movie.id}`))
     .filter((movie) => {
       const key = `${movie.mediaType || "movie"}:${movie.id}`;
-      return !taste?.dislikedMovieIds.includes(movie.id) && !taste?.excludeKeys?.includes(key);
+      return (
+        !taste?.dislikedMovieIds.includes(movie.id) &&
+        !taste?.excludeKeys?.includes(key) &&
+        !matchesAvoidPreferences(movie, taste)
+      );
     })
     .filter((movie) => movie.vote_count >= 20 || movie.popularity >= 12)
     .map((movie) => ({

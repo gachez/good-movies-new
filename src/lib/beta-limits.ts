@@ -7,6 +7,7 @@ import { getUsageIdentity } from "@/lib/request-identity";
 
 export type BetaLimitedAction =
   | "ai_discover"
+  | "feed_story_rerank"
   | "ai_profile_refresh"
   | "legacy_recommendations";
 
@@ -30,7 +31,8 @@ const DEFAULT_LIMITS: Record<
     authenticated: number;
   }
 > = {
-  ai_discover: { anonymous: 20, authenticated: 80 },
+  ai_discover: { anonymous: 1, authenticated: 80 },
+  feed_story_rerank: { anonymous: 12, authenticated: 60 },
   ai_profile_refresh: { anonymous: 0, authenticated: 6 },
   legacy_recommendations: { anonymous: 10, authenticated: 40 },
 };

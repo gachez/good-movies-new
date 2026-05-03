@@ -8,6 +8,7 @@ import { AppNav } from "@/components/AppNav";
 import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { Movie } from "@/types/movie";
 import { BrandLink } from "@/components/BrandLogo";
+import { appendAvoidQueryParams } from "@/utils/tastePreferences";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w500${path}`;
 
@@ -63,6 +64,7 @@ export default function SearchPage() {
       if (nextQuery.trim()) params.set("query", nextQuery.trim());
       if (nextType !== "all") params.set("type", nextType);
       if (nextGenre !== "All") params.set("genre", nextGenre);
+      appendAvoidQueryParams(params);
 
       try {
         const response = await fetch(`/api/search?${params.toString()}`);

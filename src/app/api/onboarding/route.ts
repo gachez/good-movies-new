@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   getPopularMovies,
   getPopularTV,
@@ -31,13 +31,20 @@ function decorateMovie(movie: TMDBMovie, index: number) {
   };
 }
 
-export async function GET() {
+function getPage(request: NextRequest) {
+  const page = Number(new URL(request.url).searchParams.get("page") || 1);
+  if (!Number.isFinite(page) || page < 1) return 1;
+  return Math.min(Math.floor(page), 50);
+}
+
+export async function GET(request: NextRequest) {
+  const page = getPage(request);
   const [trendingMovies, trendingTV, popularMovies, popularTV] =
     await Promise.all([
-      getTrendingMovies(),
-      getTrendingTV(),
-      getPopularMovies(),
-      getPopularTV(),
+      getTrendingMovies(page),
+      getTrendingTV(page),
+      getPopularMovies(page),
+      getPopularTV(page),
     ]);
 
   const results = dedupeMovies([
@@ -51,5 +58,5 @@ export async function GET() {
     .slice(0, 32)
     .map(decorateMovie);
 
-  return NextResponse.json({ results });
+  return NextResponse.json({ results, nextPage: page + 1 });
 }
