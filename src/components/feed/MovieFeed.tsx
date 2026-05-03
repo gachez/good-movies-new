@@ -25,7 +25,10 @@ import { AuthNudge } from "@/components/auth/AuthNudge";
 import { BrandLink } from "@/components/BrandLogo";
 import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { ListSelectionModal } from "@/components/ListSelectionModal";
-import { TasteOnboarding } from "@/components/onboarding/TasteOnboarding";
+import {
+  shouldShowTasteOnboarding,
+  TasteOnboarding,
+} from "@/components/onboarding/TasteOnboarding";
 import { authClient } from "@/lib/auth-client";
 import { Movie, MovieReview, MovieState } from "@/types/movie";
 import { MovieStorage } from "@/utils/movieStorage";
@@ -342,6 +345,8 @@ export function MovieFeed() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
+  const [isOnboardingGateOpen, setIsOnboardingGateOpen] = useState(false);
   const [selectedReviews, setSelectedReviews] = useState<{
     movie: Movie;
     reviews: MovieReview[];
@@ -386,6 +391,7 @@ export function MovieFeed() {
         : Math.floor(Math.random() * INITIAL_FEED_CURSOR_SPREAD);
       if (!append) {
         setIsLoading(true);
+        setActiveIndex(0);
         shownKeysRef.current = new Set();
         cursorRef.current = cursor;
       }
@@ -582,8 +588,20 @@ export function MovieFeed() {
   );
 
   useEffect(() => {
-    void loadFeed(false);
+    const needsOnboarding = shouldShowTasteOnboarding();
+    setIsOnboardingGateOpen(needsOnboarding);
+    setHasCheckedOnboarding(true);
+
+    if (!needsOnboarding) {
+      void loadFeed(false);
+    }
   }, [loadFeed]);
+
+  const handleOnboardingDone = useCallback(() => {
+    setIsOnboardingGateOpen(false);
+    void loadFeed(false);
+    void refreshAIProfile(true);
+  }, [loadFeed, refreshAIProfile]);
 
   useEffect(() => {
     if (!isAuthed) return;
@@ -832,7 +850,10 @@ export function MovieFeed() {
     toast.success("Feedback saved.");
   };
 
-  if (isLoading && movies.length === 0) {
+  if (
+    !hasCheckedOnboarding ||
+    (isLoading && movies.length === 0 && !isOnboardingGateOpen)
+  ) {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[#05080b] px-6 text-white">
         <FlickBuddyLoader
@@ -905,10 +926,7 @@ export function MovieFeed() {
       />
 
       <TasteOnboarding
-        onDone={() => {
-          void loadFeed(false);
-          void refreshAIProfile(true);
-        }}
+        onDone={handleOnboardingDone}
       />
 
       {listMovie && (

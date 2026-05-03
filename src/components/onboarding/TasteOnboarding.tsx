@@ -21,7 +21,7 @@ function hasTasteSignals() {
   return liked.length + saved.length >= MIN_SELECTIONS;
 }
 
-function shouldShowOnboarding() {
+export function shouldShowTasteOnboarding() {
   if (typeof window === "undefined") return false;
   const status = window.localStorage.getItem(STORAGE_KEY);
   return !status && !hasTasteSignals();
@@ -70,7 +70,7 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
   };
 
   useEffect(() => {
-    if (!shouldShowOnboarding()) return;
+    if (!shouldShowTasteOnboarding()) return;
     setOpen(true);
     setIsLoading(true);
 
@@ -88,9 +88,10 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
       .catch((error) => {
         console.error(error);
         setOpen(false);
+        onDone();
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [onDone]);
 
   useEffect(() => {
     if (!open) return;
