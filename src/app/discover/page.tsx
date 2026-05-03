@@ -17,12 +17,18 @@ import {
   Star,
 } from "lucide-react";
 import { AppNav } from "@/components/AppNav";
+import { AuthNudge } from "@/components/auth/AuthNudge";
 import { BrandLink, BrandLogo } from "@/components/BrandLogo";
 import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
+import { authClient } from "@/lib/auth-client";
 import { Movie } from "@/types/movie";
 import { getClientId, trackEvent } from "@/utils/analytics";
+import { appendAvoidQueryParams } from "@/utils/tastePreferences";
 
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w500${path}`;
+const ANONYMOUS_DISCOVER_SEARCH_COUNT_KEY =
+  "flickbuddyAnonymousDiscoverSearchCount";
+const ANONYMOUS_DISCOVER_SEARCH_LIMIT = 1;
 
 const prompts = [
   "Mind-bending with a smart lead",
@@ -52,6 +58,7 @@ type DiscoverMode = (typeof modes)[number]["value"];
 interface DiscoverResponse {
   mode: "trending" | "semantic" | "ambiguous";
   error?: string;
+  code?: string;
   interpretedQuery: {
     explanation: string;
     searchTerms: string[];
@@ -77,15 +84,56 @@ export default function DiscoverPage() {
     useState<DiscoverResponse["interpretedQuery"]>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [authOpen, setAuthOpen] = useState(false);
+  const session = authClient.useSession();
+  const isAuthed = Boolean(session.data?.user);
 
   const hasQuery = submittedQuery.trim().length > 0;
 
+  const openDiscoverAuthWall = useCallback((source: string) => {
+    setAuthOpen(true);
+    trackEvent("auth_nudge_shown", {
+      metadata: { source },
+    });
+  }, []);
+
+  const anonymousSearchCount = useCallback(() => {
+    if (typeof window === "undefined") return 0;
+    const count = Number(
+      window.localStorage.getItem(ANONYMOUS_DISCOVER_SEARCH_COUNT_KEY) || "0"
+    );
+    return Number.isFinite(count) ? count : 0;
+  }, []);
+
+  const recordAnonymousDiscoverSearch = useCallback(() => {
+    if (isAuthed || typeof window === "undefined") return;
+    window.localStorage.setItem(
+      ANONYMOUS_DISCOVER_SEARCH_COUNT_KEY,
+      String(Math.max(anonymousSearchCount() + 1, ANONYMOUS_DISCOVER_SEARCH_LIMIT))
+    );
+  }, [anonymousSearchCount, isAuthed]);
+
+  const shouldWallAnonymousDiscoverSearch = useCallback(
+    (query: string) =>
+      !isAuthed &&
+      query.trim().length > 0 &&
+      anonymousSearchCount() >= ANONYMOUS_DISCOVER_SEARCH_LIMIT,
+    [anonymousSearchCount, isAuthed]
+  );
+
   const loadMovies = useCallback(async (nextQuery: string, nextMode: DiscoverMode) => {
+    if (shouldWallAnonymousDiscoverSearch(nextQuery)) {
+      setIsLoading(false);
+      openDiscoverAuthWall("anonymous_discover_client_limit");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
     const params = new URLSearchParams();
     if (nextQuery.trim()) params.set("query", nextQuery.trim());
     params.set("mode", nextMode);
+    appendAvoidQueryParams(params);
 
     try {
       const response = await fetch(`/api/discover?${params.toString()}`, {
@@ -93,6 +141,9 @@ export default function DiscoverPage() {
       });
       const data = (await response.json()) as DiscoverResponse;
       if (!response.ok) {
+        if (response.status === 401 || data.code === "AUTH_REQUIRED") {
+          openDiscoverAuthWall("anonymous_discover_server_limit");
+        }
         throw new Error(
           "error" in data && typeof data.error === "string"
             ? data.error
@@ -102,6 +153,9 @@ export default function DiscoverPage() {
       setTitleMatches(data.titleMatches || []);
       setDiscoveryMatches(data.discoveryMatches || []);
       setInterpretedQuery(data.interpretedQuery);
+      if (nextQuery.trim()) {
+        recordAnonymousDiscoverSearch();
+      }
       trackEvent(nextQuery.trim() ? "discover_results_loaded" : "discover_opened", {
         metadata: {
           mode: nextMode,
@@ -121,7 +175,11 @@ export default function DiscoverPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [
+    openDiscoverAuthWall,
+    recordAnonymousDiscoverSearch,
+    shouldWallAnonymousDiscoverSearch,
+  ]);
 
   useEffect(() => {
     void loadMovies(submittedQuery, mode);
@@ -238,7 +296,7 @@ export default function DiscoverPage() {
         ) : hasQuery ? (
           <div className="space-y-6">
             {discoveryMatches.length > 0 ? (
-              <RecommendationList movies={discoveryMatches} query={submittedQuery} />
+              <RecommendationList movies={discoveryMatches} />
             ) : (
               <EmptyState />
             )}
@@ -264,6 +322,18 @@ export default function DiscoverPage() {
           onRefine={handleRefine}
         />
       )}
+
+      <AuthNudge
+        open={authOpen}
+        onOpenChange={setAuthOpen}
+        initialMode="signup"
+        title="Keep using AI discovery"
+        description="Create a free account to keep searching by mood, title, or viewing situation."
+        onAuthed={() => {
+          void session.refetch();
+          void loadMovies(submittedQuery, mode);
+        }}
+      />
 
       <AppNav />
     </main>
@@ -532,7 +602,7 @@ function MoviePill({ movie }: { movie: Movie }) {
   );
 }
 
-function RecommendationList({ movies, query }: { movies: Movie[]; query: string }) {
+function RecommendationList({ movies }: { movies: Movie[] }) {
   return (
     <section>
       <div className="mb-4 flex items-end justify-between gap-3">

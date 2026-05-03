@@ -13,6 +13,7 @@ import {
 import { AppNav } from "@/components/AppNav";
 import { BackButton } from "@/components/BackButton";
 import { BrandLink } from "@/components/BrandLogo";
+import { TasteAvoidSettings } from "@/components/settings/TasteAvoidSettings";
 
 const settingsSections = [
   {
@@ -88,6 +89,8 @@ export default function SettingsPage() {
             <InfoCard key={section.title} {...section} />
           ))}
         </section>
+
+        <TasteAvoidSettings />
 
         <section className="mt-8">
           <h2 className="text-sm font-black uppercase tracking-[0.18em] text-white/45">

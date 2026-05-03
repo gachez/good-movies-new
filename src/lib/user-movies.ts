@@ -26,6 +26,19 @@ interface StoredMovieSnapshot {
   data: string;
 }
 
+function compactTasteSnapshot(movie: Movie) {
+  return {
+    id: movie.id,
+    title: movie.title,
+    overview: movie.overview,
+    genres: movie.genres || [],
+    mediaType: movie.mediaType === "tv" ? ("tv" as const) : ("movie" as const),
+    release_date: movie.release_date,
+    vote_average: movie.vote_average,
+    popularity: movie.popularity,
+  };
+}
+
 ensureAppTables();
 
 export function saveMovieSnapshot(movie: Movie) {
@@ -165,6 +178,9 @@ export function getUserTastePayload(userId: string) {
     watchedMovieIds,
     likedSeeds: likedMovies.map(toSeed),
     savedSeeds: savedMovies.map(toSeed),
+    likedSnapshots: likedMovies.map(compactTasteSnapshot),
+    savedSnapshots: savedMovies.map(compactTasteSnapshot),
+    dislikedSnapshots: dislikedMovies.map(compactTasteSnapshot),
     excludeKeys,
     likedGenres: Array.from(
       new Set(likedMovies.flatMap((movie) => movie.genres || []))
@@ -172,6 +188,8 @@ export function getUserTastePayload(userId: string) {
     dislikedGenres: Array.from(
       new Set(dislikedMovies.flatMap((movie) => movie.genres || []))
     ),
+    avoidedGenres: [],
+    avoidTerms: [],
     excludeMovieIds: Array.from(
       new Set([
         ...likedMovieIds,

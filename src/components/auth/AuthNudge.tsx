@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Mail, Sparkles } from "lucide-react";
+import { Mail } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   Dialog,
@@ -27,11 +27,15 @@ export function AuthNudge({
   onOpenChange,
   onAuthed,
   initialMode = "signin",
+  title = "Save your taste profile",
+  description = "Create an account to keep your picks, likes, and recommendations across devices.",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAuthed?: () => void;
   initialMode?: "signin" | "signup";
+  title?: string;
+  description?: string;
 }) {
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [name, setName] = useState("");
@@ -99,8 +103,9 @@ export function AuthNudge({
       <DialogContent className="border-white/10 bg-[#0b1116] text-white sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            Create an account to unlock all features
+            {title}
           </DialogTitle>
+          <p className="text-sm leading-6 text-white/58">{description}</p>
         </DialogHeader>
 
 

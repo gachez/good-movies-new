@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { Check, Loader2, Search, Sparkles, X } from "lucide-react";
+import { Check, Loader2, Search, Shuffle, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
 import { Movie } from "@/types/movie";
@@ -14,19 +14,6 @@ const MIN_SELECTIONS = 3;
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w500${path}`;
 
 type Filter = "all" | "movie" | "tv";
-
-const GENRES = [
-  "Action",
-  "Animation",
-  "Comedy",
-  "Crime",
-  "Drama",
-  "Horror",
-  "Mystery",
-  "Romance",
-  "Science Fiction",
-  "Thriller",
-];
 
 function hasTasteSignals() {
   const liked = MovieStorage.getMoviesInList("Liked");
@@ -58,24 +45,42 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
   const [selected, setSelected] = useState<Record<string, Movie>>({});
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
-  const [genre, setGenre] = useState("");
+  const [starterPage, setStarterPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const session = authClient.useSession();
   const isAuthed = Boolean(session.data?.user);
+
+  const appendStarterMovies = (movies: Movie[]) => {
+    setStarterMovies((current) => {
+      const seen = new Set(
+        current.map((movie) => `${movie.mediaType || "movie"}:${movie.id}`)
+      );
+      const fresh = movies.filter((movie) => {
+        const key = `${movie.mediaType || "movie"}:${movie.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      return [...current, ...fresh];
+    });
+  };
 
   useEffect(() => {
     if (!shouldShowOnboarding()) return;
     setOpen(true);
     setIsLoading(true);
 
-    fetch("/api/onboarding", {
+    fetch("/api/onboarding?page=1", {
       headers: { "x-flickbuddy-client-id": getClientId() },
     })
       .then((response) => response.json())
       .then((data: { results?: Movie[] }) => {
         setStarterMovies(data.results || []);
+        setStarterPage(1);
         trackEvent("onboarding_shown", {
           metadata: { resultCount: data.results?.length || 0 },
         });
@@ -90,7 +95,7 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     if (!open) return;
     const trimmedQuery = query.trim();
-    const hasSearch = trimmedQuery.length > 0 || genre;
+    const hasSearch = trimmedQuery.length > 0;
 
     if (!hasSearch) {
       setSearchMovies([]);
@@ -102,7 +107,6 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
     const timeout = window.setTimeout(() => {
       const params = new URLSearchParams();
       if (trimmedQuery) params.set("query", trimmedQuery);
-      if (genre) params.set("genre", genre);
       if (filter !== "all") params.set("type", filter);
 
       fetch(`/api/search?${params.toString()}`, {
@@ -114,7 +118,6 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
           trackEvent("onboarding_searched", {
             metadata: {
               query: trimmedQuery || null,
-              genre: genre || null,
               type: filter,
               resultCount: data.results?.length || 0,
             },
@@ -128,11 +131,11 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
     }, 320);
 
     return () => window.clearTimeout(timeout);
-  }, [filter, genre, open, query]);
+  }, [filter, open, query]);
 
   const selectedMovies = useMemo(() => Object.values(selected), [selected]);
   const remainingCount = Math.max(MIN_SELECTIONS - selectedMovies.length, 0);
-  const hasSearch = query.trim().length > 0 || genre;
+  const hasSearch = query.trim().length > 0;
   const visibleMovies = (hasSearch ? searchMovies : starterMovies).filter(
     (movie) => {
       if (filter === "all" || hasSearch) return true;
@@ -203,6 +206,29 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
     });
   };
 
+  const loadMoreStarterMovies = async () => {
+    if (isLoadingMore || hasSearch) return;
+
+    const nextPage = starterPage + 1;
+    setIsLoadingMore(true);
+    try {
+      const response = await fetch(`/api/onboarding?page=${nextPage}`, {
+        headers: { "x-flickbuddy-client-id": getClientId() },
+      });
+      const data = (await response.json()) as { results?: Movie[] };
+      appendStarterMovies(data.results || []);
+      setStarterPage(nextPage);
+      trackEvent("onboarding_more_loaded", {
+        metadata: { page: nextPage, resultCount: data.results?.length || 0 },
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error("Could not load more titles.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -211,10 +237,10 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
         <header className="flex shrink-0 items-start gap-3 border-b border-white/8 p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:gap-4 sm:p-5">
           <div className="min-w-0 flex-1">
             <h2 className="mt-1 text-[clamp(1.35rem,6vw,1.75rem)] font-black leading-tight sm:text-2xl">
-              Pick movies and series you already like.
+              Pick a few titles you love.
             </h2>
             <p className="mt-1 line-clamp-2 text-sm leading-5 text-white/58 sm:mt-2 sm:leading-6">
-              Choose at least {MIN_SELECTIONS}, to make the recommendations sharper.
+              Search or tap at least {MIN_SELECTIONS} posters to start your feed.
             </p>
           </div>
           <button
@@ -233,9 +259,19 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search a title, actor, mood, or franchise"
+              placeholder="Search any movie or series"
               className="min-w-0 flex-1 bg-transparent text-base font-semibold text-white outline-none placeholder:text-white/35 md:text-sm"
             />
+            {query.trim().length > 0 && !isSearching && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="rounded-full p-1 text-white/42 transition hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
             {isSearching && (
               <Loader2 className="h-4 w-4 animate-spin text-cyan-200" />
             )}
@@ -265,34 +301,6 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
             <p className="shrink-0 text-xs font-bold text-white/58">
               {selectedMovies.length} selected
             </p>
-          </div>
-
-          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 sm:mt-3">
-            <button
-              type="button"
-              onClick={() => setGenre("")}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold ${
-                genre === ""
-                  ? "border-cyan-300 bg-cyan-300 text-black"
-                  : "border-white/10 bg-white/[0.04] text-white/58"
-              }`}
-            >
-              Any genre
-            </button>
-            {GENRES.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setGenre(item)}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold ${
-                  genre === item
-                    ? "border-cyan-300 bg-cyan-300 text-black"
-                    : "border-white/10 bg-white/[0.04] text-white/58"
-                }`}
-              >
-                {item}
-              </button>
-            ))}
           </div>
         </div>
 
@@ -355,52 +363,70 @@ export function TasteOnboarding({ onDone }: { onDone: () => void }) {
               </div>
             </div>
           ) : visibleMovies.length > 0 ? (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-              {visibleMovies.map((movie) => {
-                const key = `${movie.mediaType || "movie"}:${movie.id}`;
-                const active = Boolean(selected[key]);
+            <>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                {visibleMovies.map((movie) => {
+                  const key = `${movie.mediaType || "movie"}:${movie.id}`;
+                  const active = Boolean(selected[key]);
 
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => toggleMovie(movie)}
-                    className={`group relative aspect-[2/3] overflow-hidden rounded-sm border text-left transition ${
-                      active
-                        ? "border-cyan-300 ring-2 ring-cyan-300/50"
-                        : "border-white/8 bg-white/[0.04] hover:border-white/25"
-                    }`}
-                  >
-                    <Image
-                      src={posterUrl(movie.poster_path)}
-                      alt={movie.title}
-                      fill
-                      sizes="(min-width: 1024px) 12vw, 33vw"
-                      className="object-cover transition duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-transparent to-black/10" />
-                    <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-black uppercase text-white/72">
-                      {movie.mediaType === "tv" ? "Series" : "Movie"}
-                    </span>
-                    {active && (
-                      <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-cyan-300 text-black">
-                        <Check className="h-4 w-4" />
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => toggleMovie(movie)}
+                      className={`group relative aspect-[2/3] overflow-hidden rounded-sm border text-left transition ${
+                        active
+                          ? "border-cyan-300 ring-2 ring-cyan-300/50"
+                          : "border-white/8 bg-white/[0.04] hover:border-white/25"
+                      }`}
+                    >
+                      <Image
+                        src={posterUrl(movie.poster_path)}
+                        alt={movie.title}
+                        fill
+                        sizes="(min-width: 1024px) 12vw, 33vw"
+                        className="object-cover transition duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-transparent to-black/10" />
+                      <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-black uppercase text-white/72">
+                        {movie.mediaType === "tv" ? "Series" : "Movie"}
                       </span>
+                      {active && (
+                        <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-cyan-300 text-black">
+                          <Check className="h-4 w-4" />
+                        </span>
+                      )}
+                      <p className="absolute bottom-2 left-2 right-2 line-clamp-2 text-xs font-black leading-tight">
+                        {movie.title}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+              {!hasSearch && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={loadMoreStarterMovies}
+                    disabled={isLoadingMore}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-4 text-sm font-bold text-white/72 transition hover:border-white/25 hover:text-white disabled:opacity-60"
+                  >
+                    {isLoadingMore ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Shuffle className="h-4 w-4" />
                     )}
-                    <p className="absolute bottom-2 left-2 right-2 line-clamp-2 text-xs font-black leading-tight">
-                      {movie.title}
-                    </p>
+                    More picks
                   </button>
-                );
-              })}
-            </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex min-h-80 items-center justify-center text-center">
               <div>
                 <p className="text-base font-black">No matches found</p>
                 <p className="mt-2 text-sm text-white/55">
-                  Try a title like Inception, a broader genre, or switch between
-                  movies and series.
+                  Try a title like Inception, The Bear, or Spirited Away.
                 </p>
               </div>
             </div>

@@ -335,12 +335,36 @@ export async function getMovieRecommendations(
   return (data?.results || []).map(normalizeMovie);
 }
 
+export async function getMovieSimilar(
+  movieId: number,
+  page: number = 1
+): Promise<TMDBMovie[]> {
+  const data = await fetchTMDB<TMDBListResponse<Omit<TMDBMovie, "genres">>>(
+    `/movie/${movieId}/similar`,
+    { page }
+  );
+
+  return (data?.results || []).map(normalizeMovie);
+}
+
 export async function getTVRecommendations(
   seriesId: number,
   page: number = 1
 ): Promise<TMDBMovie[]> {
   const data = await fetchTMDB<TMDBListResponse<TMDBTVResult>>(
     `/tv/${seriesId}/recommendations`,
+    { page }
+  );
+
+  return (data?.results || []).map(normalizeTV);
+}
+
+export async function getTVSimilar(
+  seriesId: number,
+  page: number = 1
+): Promise<TMDBMovie[]> {
+  const data = await fetchTMDB<TMDBListResponse<TMDBTVResult>>(
+    `/tv/${seriesId}/similar`,
     { page }
   );
 

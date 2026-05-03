@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import type {
   PointerEvent as ReactPointerEvent,
   ReactNode,
@@ -16,6 +15,7 @@ import {
   Play,
   Send,
   Star,
+  ThumbsDown,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -27,10 +27,16 @@ import { FlickBuddyLoader } from "@/components/FilmRabbitLoader";
 import { ListSelectionModal } from "@/components/ListSelectionModal";
 import { TasteOnboarding } from "@/components/onboarding/TasteOnboarding";
 import { authClient } from "@/lib/auth-client";
-import { Movie, MovieReview } from "@/types/movie";
+import { Movie, MovieReview, MovieState } from "@/types/movie";
 import { MovieStorage } from "@/utils/movieStorage";
 import { getClientId, sendFeedback, trackEvent } from "@/utils/analytics";
 import { shareOrCopy } from "@/utils/share";
+import {
+  addAvoidPreferences,
+  AvoidPreferences,
+  readAvoidPreferences,
+  saveAvoidPreferences,
+} from "@/utils/tastePreferences";
 import type { MovieInteractionAction } from "@/lib/user-movies";
 
 interface FeedTastePayload {
@@ -40,8 +46,13 @@ interface FeedTastePayload {
   watchedMovieIds: number[];
   likedSeeds: MediaSeed[];
   savedSeeds: MediaSeed[];
+  likedSnapshots: TasteMovieSnapshot[];
+  savedSnapshots: TasteMovieSnapshot[];
+  dislikedSnapshots: TasteMovieSnapshot[];
   likedGenres: string[];
   dislikedGenres: string[];
+  avoidedGenres: string[];
+  avoidTerms: string[];
   excludeMovieIds: number[];
   excludeKeys?: string[];
   cursor?: number;
@@ -50,6 +61,17 @@ interface FeedTastePayload {
 interface MediaSeed {
   id: number;
   mediaType: "movie" | "tv";
+}
+
+interface TasteMovieSnapshot {
+  id: number;
+  title: string;
+  overview: string;
+  genres: string[];
+  mediaType: "movie" | "tv";
+  release_date?: string;
+  vote_average?: number;
+  popularity?: number;
 }
 
 type RecommendationFeedback =
@@ -66,7 +88,12 @@ const DOUBLE_TAP_DELAY_MS = 300;
 const DOUBLE_TAP_DISTANCE_PX = 48;
 const TAP_MOVE_TOLERANCE_PX = 18;
 const INITIAL_FEED_CURSOR_SPREAD = 20;
+const MIN_APPEND_BATCH_SIZE = 8;
+const MAX_APPEND_LOAD_ATTEMPTS = 3;
 const LOCAL_TASTE_SYNC_KEY_PREFIX = "flickbuddyTasteSyncedUser";
+const ANONYMOUS_TASTE_SIGNAL_COUNT_KEY = "flickbuddyAnonymousTasteSignalCount";
+const ANONYMOUS_ACTION_NUDGE_THRESHOLD = 3;
+const ANONYMOUS_VIEW_NUDGE_THRESHOLD = 5;
 
 interface TapPoint {
   x: number;
@@ -165,9 +192,20 @@ function readTastePayload(): FeedTastePayload {
 
   const likedGenres = likedMovies.flatMap((movie) => movie.genres || []);
   const dislikedGenres = dislikedMovies.flatMap((movie) => movie.genres || []);
+  const avoidPreferences = readAvoidPreferences();
   const toSeed = (movie: Movie): MediaSeed => ({
     id: movie.id,
     mediaType: movie.mediaType === "tv" ? "tv" : "movie",
+  });
+  const toSnapshot = (movie: Movie): TasteMovieSnapshot => ({
+    id: movie.id,
+    title: movie.title,
+    overview: movie.overview,
+    genres: movie.genres || [],
+    mediaType: movie.mediaType === "tv" ? "tv" : "movie",
+    release_date: movie.release_date,
+    vote_average: movie.vote_average,
+    popularity: movie.popularity,
   });
 
   return {
@@ -181,8 +219,19 @@ function readTastePayload(): FeedTastePayload {
     savedSeeds: Array.from(
       new Map(savedMovies.map((movie) => [movieKey(movie), toSeed(movie)])).values()
     ),
+    likedSnapshots: Array.from(
+      new Map(likedMovies.map((movie) => [movieKey(movie), toSnapshot(movie)])).values()
+    ).slice(0, 24),
+    savedSnapshots: Array.from(
+      new Map(savedMovies.map((movie) => [movieKey(movie), toSnapshot(movie)])).values()
+    ).slice(0, 24),
+    dislikedSnapshots: Array.from(
+      new Map(dislikedMovies.map((movie) => [movieKey(movie), toSnapshot(movie)])).values()
+    ).slice(0, 24),
     likedGenres: Array.from(new Set(likedGenres)),
     dislikedGenres: Array.from(new Set(dislikedGenres)),
+    avoidedGenres: avoidPreferences.genres,
+    avoidTerms: avoidPreferences.terms,
     excludeMovieIds: Array.from(moviesById.keys()),
     excludeKeys: Array.from(moviesByKey.keys()),
   };
@@ -218,9 +267,42 @@ async function syncLocalTasteToAccount(userId: string) {
   if (window.localStorage.getItem(syncKey) === "1") return false;
 
   const interactions = readLocalTasteInteractions();
+  const localAvoids = readAvoidPreferences();
+  let preferencesSynced = false;
+
+  if (localAvoids.genres.length > 0 || localAvoids.terms.length > 0) {
+    const remoteResponse = await fetch("/api/taste-preferences", {
+      headers: { "x-flickbuddy-client-id": getClientId() },
+    }).catch(() => null);
+    const remoteData =
+      remoteResponse?.ok
+        ? ((await remoteResponse.json().catch(() => null)) as {
+            preferences?: AvoidPreferences;
+          } | null)
+        : null;
+    const mergedAvoids = addAvoidPreferences(
+      localAvoids,
+      remoteData?.preferences || null
+    );
+
+    const saveResponse = await fetch("/api/taste-preferences", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-flickbuddy-client-id": getClientId(),
+      },
+      body: JSON.stringify(mergedAvoids),
+    }).catch(() => null);
+
+    if (saveResponse?.ok) {
+      preferencesSynced = true;
+      saveAvoidPreferences(mergedAvoids);
+    }
+  }
+
   if (interactions.length === 0) {
     window.localStorage.setItem(syncKey, "1");
-    return false;
+    return preferencesSynced;
   }
 
   const results = await Promise.allSettled(
@@ -243,16 +325,17 @@ async function syncLocalTasteToAccount(userId: string) {
     window.localStorage.setItem(syncKey, "1");
   }
 
-  if (syncedCount > 0) {
+  if (syncedCount > 0 || preferencesSynced) {
     trackEvent("local_taste_synced", {
       metadata: {
         syncedCount,
         attemptedCount: interactions.length,
+        preferencesSynced,
       },
     });
   }
 
-  return syncedCount > 0;
+  return syncedCount > 0 || preferencesSynced;
 }
 
 export function MovieFeed() {
@@ -265,6 +348,12 @@ export function MovieFeed() {
   } | null>(null);
   const [listMovie, setListMovie] = useState<Movie | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signup");
+  const [authPrompt, setAuthPrompt] = useState({
+    title: "Save your taste profile",
+    description:
+      "Create an account to keep your picks, likes, saves, and recommendations.",
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAITuning, setIsAITuning] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -275,6 +364,8 @@ export function MovieFeed() {
   const touchStartYRef = useRef<number | null>(null);
   const aiRefreshRef = useRef(false);
   const syncedUserRef = useRef<string | null>(null);
+  const authNudgeShownRef = useRef(false);
+  const anonymousViewedKeysRef = useRef<Set<string>>(new Set());
   const session = authClient.useSession();
 
   const activeMovie = movies[activeIndex];
@@ -290,7 +381,7 @@ export function MovieFeed() {
     isLoadingRef.current = true;
 
     try {
-      const cursor = append
+      let cursor = append
         ? cursorRef.current
         : Math.floor(Math.random() * INITIAL_FEED_CURSOR_SPREAD);
       if (!append) {
@@ -299,45 +390,80 @@ export function MovieFeed() {
         cursorRef.current = cursor;
       }
       const payload = readTastePayload();
-      const response = await fetch("/api/feed", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-flickbuddy-client-id": getClientId(),
-        },
-        body: JSON.stringify({
-          ...payload,
-          cursor,
-          excludeKeys: Array.from(
-            new Set([...(payload.excludeKeys || []), ...shownKeysRef.current])
-          ),
-        }),
-      });
+      const excludedKeys = new Set([
+        ...(payload.excludeKeys || []),
+        ...shownKeysRef.current,
+      ]);
+      const collected: Movie[] = [];
+      const maxAttempts = append ? MAX_APPEND_LOAD_ATTEMPTS : 1;
+      let attemptedCursors: number[] = [];
 
-      if (!response.ok) {
-        throw new Error("Feed request failed");
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        attemptedCursors = [...attemptedCursors, cursor];
+        const response = await fetch("/api/feed", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-flickbuddy-client-id": getClientId(),
+          },
+          body: JSON.stringify({
+            ...payload,
+            cursor,
+            skipStoryRerank: append && attempt > 0,
+            excludeKeys: Array.from(excludedKeys),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Feed request failed");
+        }
+
+        const data = (await response.json()) as {
+          results: Movie[];
+          nextCursor?: number;
+        };
+        cursor =
+          typeof data.nextCursor === "number" ? data.nextCursor : cursor + 1;
+        cursorRef.current = cursor;
+
+        const fresh = (data.results || []).filter((movie) => {
+          const key = movieKey(movie);
+          if (excludedKeys.has(key)) return false;
+          excludedKeys.add(key);
+          return true;
+        });
+
+        collected.push(...fresh);
+
+        if (!append || collected.length >= MIN_APPEND_BATCH_SIZE) {
+          break;
+        }
       }
 
-      const data = (await response.json()) as {
-        results: Movie[];
-        nextCursor?: number;
-      };
       trackEvent(append ? "feed_more_loaded" : "feed_loaded", {
         metadata: {
-          resultCount: data.results?.length || 0,
-          cursor,
+          resultCount: collected.length,
+          cursor: attemptedCursors[0],
+          attempts: attemptedCursors.length,
         },
       });
-      cursorRef.current =
-        typeof data.nextCursor === "number" ? data.nextCursor : cursor + 1;
+
+      if (append && collected.length === 0) {
+        trackEvent("feed_more_empty", {
+          metadata: { cursors: attemptedCursors },
+        });
+      }
+
+      collected.forEach((movie) => shownKeysRef.current.add(movieKey(movie)));
+
       setMovies((current) => {
         const existingKeys = append
           ? new Set(current.map(movieKey))
           : new Set<string>();
-        const fresh = data.results.filter((movie) => {
+        const fresh = collected.filter((movie) => {
           const key = movieKey(movie);
-          if (existingKeys.has(key) || shownKeysRef.current.has(key)) return false;
-          shownKeysRef.current.add(key);
+          if (existingKeys.has(key)) return false;
+          existingKeys.add(key);
           return true;
         });
 
@@ -396,6 +522,65 @@ export function MovieFeed() {
     [isAuthed, loadFeed]
   );
 
+  const openAuthNudge = useCallback(
+    ({
+      source,
+      title = "Save your taste profile",
+      description = "Create an account to keep your picks, likes, saves, and recommendations.",
+      force = false,
+    }: {
+      source: string;
+      title?: string;
+      description?: string;
+      force?: boolean;
+    }) => {
+      if (isAuthed) return;
+      if (authNudgeShownRef.current && !force) return;
+
+      authNudgeShownRef.current = true;
+      setAuthMode("signup");
+      setAuthPrompt({ title, description });
+      setAuthOpen(true);
+      trackEvent("auth_nudge_shown", {
+        metadata: { source },
+      });
+    },
+    [isAuthed]
+  );
+
+  const recordAnonymousTasteSignal = useCallback(
+    (
+      movie: Movie,
+      signal: "like" | "dislike" | "save" | "watch",
+      threshold = ANONYMOUS_ACTION_NUDGE_THRESHOLD
+    ) => {
+      if (isAuthed || typeof window === "undefined") return;
+
+      const current = Number(
+        window.localStorage.getItem(ANONYMOUS_TASTE_SIGNAL_COUNT_KEY) || "0"
+      );
+      const next = Number.isFinite(current) ? current + 1 : 1;
+      window.localStorage.setItem(
+        ANONYMOUS_TASTE_SIGNAL_COUNT_KEY,
+        String(next)
+      );
+
+      trackEvent("anonymous_taste_signal_recorded", {
+        movie,
+        metadata: { signal, signalCount: next },
+      });
+
+      if (next >= threshold) {
+        openAuthNudge({
+          source: "anonymous_action_threshold",
+          description:
+            "Your feed is learning from these actions. Create an account to keep the profile going.",
+        });
+      }
+    },
+    [isAuthed, openAuthNudge]
+  );
+
   useEffect(() => {
     void loadFeed(false);
   }, [loadFeed]);
@@ -420,6 +605,29 @@ export function MovieFeed() {
         syncedUserRef.current = null;
       });
   }, [loadFeed, refreshAIProfile, userId]);
+
+  useEffect(() => {
+    if (!activeMovie || isAuthed) return;
+
+    const key = movieKey(activeMovie);
+    if (anonymousViewedKeysRef.current.has(key)) return;
+
+    anonymousViewedKeysRef.current.add(key);
+    const viewCount = anonymousViewedKeysRef.current.size;
+
+    trackEvent("anonymous_feed_title_viewed", {
+      movie: activeMovie,
+      metadata: { viewCount },
+    });
+
+    if (viewCount >= ANONYMOUS_VIEW_NUDGE_THRESHOLD) {
+      openAuthNudge({
+        source: "anonymous_feed_view_threshold",
+        description:
+          "Your recommendations are already being shaped by what you browse. Create an account to keep this taste profile.",
+      });
+    }
+  }, [activeMovie, isAuthed, openAuthNudge]);
 
   const handleScroll = () => {
     const container = scrollRef.current;
@@ -456,7 +664,13 @@ export function MovieFeed() {
 
   const requireAuth = () => {
     if (isAuthed) return true;
-    setAuthOpen(true);
+    openAuthNudge({
+      source: "protected_action",
+      title: "Keep your FlickBuddy profile",
+      description:
+        "Sign in or create an account to keep your taste profile, lists, and recommendations.",
+      force: true,
+    });
     return false;
   };
 
@@ -467,7 +681,10 @@ export function MovieFeed() {
   ) => {
     const response = await fetch("/api/interactions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-flickbuddy-client-id": getClientId(),
+      },
       body: JSON.stringify({ movie, action, value }),
     });
 
@@ -483,7 +700,6 @@ export function MovieFeed() {
   };
 
   const handleLike = async (movie: Movie) => {
-    if (!requireAuth()) return;
     MovieStorage.saveMovieState(movie.id, {
       isLiked: true,
       isDisliked: false,
@@ -499,6 +715,14 @@ export function MovieFeed() {
       movie,
       metadata: { source: "feed" },
     });
+
+    if (!isAuthed) {
+      toast.success("Tuned your feed toward this.");
+      recordAnonymousTasteSignal(movie, "like");
+      void loadFeed(true);
+      return;
+    }
+
     await persistInteraction(movie, "like");
     toast.success("Tuned your feed toward this.");
     void loadFeed(true);
@@ -524,6 +748,7 @@ export function MovieFeed() {
 
     if (!isAuthed) {
       toast.success("We will show less like this.");
+      recordAnonymousTasteSignal(movie, "dislike");
       void loadFeed(true);
       return;
     }
@@ -535,11 +760,23 @@ export function MovieFeed() {
   };
 
   const handleSave = async (movie: Movie) => {
-    if (!requireAuth()) return;
     trackEvent("save_started", {
       movie,
       metadata: { source: "feed" },
     });
+
+    if (!isAuthed) {
+      MovieStorage.addToList(movie, "Saved");
+      toast.success("Saved locally.");
+      trackEvent("movie_saved", {
+        movie,
+        metadata: { source: "feed", storage: "local" },
+      });
+      recordAnonymousTasteSignal(movie, "save");
+      void loadFeed(true);
+      return;
+    }
+
     setListMovie(movie);
   };
 
@@ -586,7 +823,10 @@ export function MovieFeed() {
       MovieStorage.saveMovieState(movie.id, { isSeen: true });
       if (isAuthed) {
         await persistInteraction(movie, "watch");
+      } else {
+        recordAnonymousTasteSignal(movie, "watch");
       }
+      void loadFeed(true);
     }
 
     toast.success("Feedback saved.");
@@ -655,6 +895,9 @@ export function MovieFeed() {
       <AuthNudge
         open={authOpen}
         onOpenChange={setAuthOpen}
+        initialMode={authMode}
+        title={authPrompt.title}
+        description={authPrompt.description}
         onAuthed={() => {
           void session.refetch();
           void loadFeed(false);
@@ -737,16 +980,22 @@ function MovieFeedItem({
 }: {
   movie: Movie;
   isActive: boolean;
-  onLike: (movie: Movie) => void;
-  onDislike: (movie: Movie) => void;
-  onSave: (movie: Movie) => void;
-  onShare: (movie: Movie) => void;
-  onFeedback: (movie: Movie, feedback: RecommendationFeedback) => void;
+  onLike: (movie: Movie) => void | Promise<void>;
+  onDislike: (movie: Movie) => void | Promise<void>;
+  onSave: (movie: Movie) => void | Promise<void>;
+  onShare: (movie: Movie) => void | Promise<void>;
+  onFeedback: (
+    movie: Movie,
+    feedback: RecommendationFeedback
+  ) => void | Promise<void>;
   onShowReviews: (movie: Movie) => void;
 }) {
   const [isMuted, setIsMuted] = useState(true);
   const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
   const [likeBurstKey, setLikeBurstKey] = useState(0);
+  const [optimisticState, setOptimisticState] = useState<MovieState>(() =>
+    MovieStorage.getMovieState(movie.id)
+  );
   const trailerRef = useRef<HTMLIFrameElement>(null);
   const pointerStartRef = useRef<Pick<TapPoint, "x" | "y"> | null>(null);
   const lastTapRef = useRef<TapPoint | null>(null);
@@ -754,13 +1003,13 @@ function MovieFeedItem({
   const releaseYear = movie.release_date
     ? new Date(movie.release_date).getFullYear()
     : "Unknown";
-  const state = MovieStorage.getMovieState(movie.id);
   const hasLongOverview = movie.overview.length > 145;
 
   useEffect(() => {
     setIsMuted(true);
     setIsOverviewExpanded(false);
     setLikeBurstKey(0);
+    setOptimisticState(MovieStorage.getMovieState(movie.id));
     lastTapRef.current = null;
   }, [movie.id]);
 
@@ -787,6 +1036,77 @@ function MovieFeedItem({
     likeBurstTimeoutRef.current = setTimeout(() => {
       setLikeBurstKey(0);
     }, 650);
+  };
+
+  const applyOptimisticState = (state: Partial<MovieState>) => {
+    setOptimisticState((current) => ({
+      ...current,
+      ...state,
+      lists: state.lists ?? current.lists,
+      lastModified: new Date().toISOString(),
+    }));
+  };
+
+  const handleLikeAction = async () => {
+    const previousState = optimisticState;
+    applyOptimisticState({
+      isLiked: true,
+      isDisliked: false,
+    });
+
+    try {
+      await onLike(movie);
+    } catch (error) {
+      console.error(error);
+      setOptimisticState(previousState);
+      toast.error("Could not save that feedback.");
+    }
+  };
+
+  const handleDislikeAction = async () => {
+    const previousState = optimisticState;
+    applyOptimisticState({
+      isLiked: false,
+      isDisliked: true,
+    });
+
+    try {
+      await onDislike(movie);
+    } catch (error) {
+      console.error(error);
+      setOptimisticState(previousState);
+      toast.error("Could not save that feedback.");
+    }
+  };
+
+  const handleSaveAction = async () => {
+    const previousState = optimisticState;
+    applyOptimisticState({
+      lists: Array.from(new Set([...(optimisticState.lists || []), "Saved"])),
+    });
+
+    try {
+      await onSave(movie);
+    } catch (error) {
+      console.error(error);
+      setOptimisticState(previousState);
+      toast.error("Could not save this title.");
+    }
+  };
+
+  const handleFeedbackAction = async (feedback: RecommendationFeedback) => {
+    const previousState = optimisticState;
+    if (feedback === "already_watched") {
+      applyOptimisticState({ isSeen: true });
+    }
+
+    try {
+      await onFeedback(movie, feedback);
+    } catch (error) {
+      console.error(error);
+      setOptimisticState(previousState);
+      toast.error("Could not save that feedback.");
+    }
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
@@ -830,7 +1150,7 @@ function MovieFeedItem({
         movie,
         metadata: { source: "feed" },
       });
-      onLike(movie);
+      void handleLikeAction();
       return;
     }
 
@@ -879,10 +1199,14 @@ function MovieFeedItem({
             </div>
           </div>
           <button
-            onClick={() => onDislike(movie)}
-            className="rounded-full border border-white/20 bg-black/35 px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur transition hover:border-red-300/60 sm:bg-white/5"
+            onClick={() => void handleDislikeAction()}
+            className={`rounded-full border px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur transition ${
+              optimisticState.isDisliked
+                ? "border-red-200 bg-red-200 text-black"
+                : "border-white/20 bg-black/35 hover:border-red-300/60 sm:bg-white/5"
+            }`}
           >
-            Pass
+            Not for me
           </button>
         </header>
 
@@ -1016,9 +1340,13 @@ function MovieFeedItem({
                 key={feedback}
                 type="button"
                 onClick={() =>
-                  onFeedback(movie, feedback as RecommendationFeedback)
+                  void handleFeedbackAction(feedback as RecommendationFeedback)
                 }
-                className="shrink-0 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-white/68 transition hover:border-cyan-300/40 hover:text-white"
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                  feedback === "already_watched" && optimisticState.isSeen
+                    ? "border-cyan-300 bg-cyan-300/18 text-cyan-100"
+                    : "border-white/12 bg-white/[0.04] text-white/68 hover:border-cyan-300/40 hover:text-white"
+                }`}
               >
                 {label}
               </button>
@@ -1026,12 +1354,28 @@ function MovieFeedItem({
           </div>
         </section>
 
-        <aside className="absolute right-3 bottom-[calc(7.2rem+env(safe-area-inset-bottom))] z-30 flex shrink-0 flex-col gap-3 sm:static sm:right-auto sm:bottom-auto sm:z-auto sm:mt-4 sm:grid sm:grid-cols-4 sm:gap-2">
+        <aside className="absolute right-3 bottom-[calc(7.2rem+env(safe-area-inset-bottom))] z-30 flex shrink-0 flex-col gap-3 sm:static sm:right-auto sm:bottom-auto sm:z-auto sm:mt-4 sm:grid sm:grid-cols-5 sm:gap-2">
           <FeedAction
-            active={state.isLiked}
-            icon={<Heart className="h-5 w-5" fill={state.isLiked ? "currentColor" : "none"} />}
+            active={optimisticState.isLiked}
+            icon={
+              <Heart
+                className="h-5 w-5"
+                fill={optimisticState.isLiked ? "currentColor" : "none"}
+              />
+            }
             label={compactNumber(movie.vote_count)}
-            onClick={() => onLike(movie)}
+            onClick={() => void handleLikeAction()}
+          />
+          <FeedAction
+            active={optimisticState.isDisliked}
+            icon={
+              <ThumbsDown
+                className="h-5 w-5"
+                fill={optimisticState.isDisliked ? "currentColor" : "none"}
+              />
+            }
+            label="not for me"
+            onClick={() => void handleDislikeAction()}
           />
           <FeedAction
             icon={<MessageCircle className="h-5 w-5" />}
@@ -1044,15 +1388,19 @@ function MovieFeedItem({
             onClick={() => onShare(movie)}
           />
           <FeedAction
-            active={state.lists?.includes("Saved")}
+            active={optimisticState.lists?.includes("Saved")}
             icon={
               <Bookmark
                 className="h-5 w-5"
-                fill={state.lists?.includes("Saved") ? "currentColor" : "none"}
+                fill={
+                  optimisticState.lists?.includes("Saved")
+                    ? "currentColor"
+                    : "none"
+                }
               />
             }
             label="save"
-            onClick={() => onSave(movie)}
+            onClick={() => void handleSaveAction()}
           />
         </aside>
       </div>

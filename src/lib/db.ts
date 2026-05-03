@@ -97,6 +97,13 @@ export function ensureAppTables() {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS user_avoid_preference (
+      user_id TEXT PRIMARY KEY,
+      genres TEXT NOT NULL DEFAULT '[]',
+      terms TEXT NOT NULL DEFAULT '[]',
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS user_entitlement (
       user_id TEXT PRIMARY KEY,
       plan TEXT NOT NULL DEFAULT 'beta',

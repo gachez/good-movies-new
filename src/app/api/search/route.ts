@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRequestSession } from "@/lib/api-session";
+import {
+  getUserAvoidPreferences,
+  mergeAvoidPreferences,
+} from "@/lib/taste-preferences";
 import {
   discoverMoviesByGenres,
   discoverTVByGenres,
@@ -12,6 +17,8 @@ import {
 type ManualSearchType = "all" | "movie" | "tv";
 
 const VALID_TYPES = new Set(["all", "movie", "tv"]);
+
+export const runtime = "nodejs";
 
 function getType(value: string | null): ManualSearchType {
   return VALID_TYPES.has(value || "") ? (value as ManualSearchType) : "all";
@@ -49,6 +56,35 @@ function filterByGenre(movies: TMDBMovie[], genre: string) {
   );
 }
 
+function movieText(movie: TMDBMovie) {
+  return [
+    movie.title,
+    movie.original_title,
+    movie.overview,
+    movie.genres.join(" "),
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function matchesAvoidPreferences(
+  movie: TMDBMovie,
+  preferences: { genres: string[]; terms: string[] }
+) {
+  const avoidedGenres = new Set(preferences.genres);
+  if (movie.genres.some((movieGenre) => avoidedGenres.has(movieGenre))) {
+    return true;
+  }
+
+  const terms = preferences.terms
+    .map((term) => term.toLowerCase().trim())
+    .filter((term) => term.length >= 2);
+  if (terms.length === 0) return false;
+
+  const searchable = movieText(movie);
+  return terms.some((term) => searchable.includes(term));
+}
+
 async function getGenreResults(genre: string, type: ManualSearchType) {
   const genreIds = getGenreIdsByNames([genre]);
   if (genreIds.length === 0) return [];
@@ -77,6 +113,14 @@ export async function GET(request: NextRequest) {
   const query = searchParams.get("query")?.trim() || "";
   const genre = searchParams.get("genre")?.trim() || "";
   const type = getType(searchParams.get("type"));
+  const session = await getRequestSession(request);
+  const preferences = mergeAvoidPreferences(
+    session ? getUserAvoidPreferences(session.user.id) : null,
+    {
+      genres: searchParams.getAll("avoidGenre"),
+      terms: searchParams.getAll("avoidTerm"),
+    }
+  );
 
   const baseResults = query
     ? await searchMulti(query)
@@ -91,6 +135,7 @@ export async function GET(request: NextRequest) {
     ),
     query ? genre : ""
   )
+    .filter((movie) => !matchesAvoidPreferences(movie, preferences))
     .sort((a, b) => b.popularity - a.popularity)
     .slice(0, 36)
     .map((movie, index) =>
